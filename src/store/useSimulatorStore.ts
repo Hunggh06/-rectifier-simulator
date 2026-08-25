@@ -17,10 +17,10 @@ import type {
 const DEFAULT_LAYERS: WaveLayerVisibility = {
   udTheory: true,
   udSimulink: true,
-  idSimulink: false,
-  uVan1: false,
-  iVan1: false,
-  gatePulses: false,
+  idSimulink: true,
+  uVan1: true,
+  iVan1: true,
+  gatePulses: true,
 };
 
 interface SimulatorState {
