@@ -121,10 +121,14 @@ function makeSimWaveforms({
     const vanOn = Math.abs(iVan1Theory[i]) > 1e-6;
     uVan1Sim[i] = vanOn ? -VT_ON + (rnd() - 0.5) * 0.06 : uVan1Theory[i] + (rnd() - 0.5) * 0.3;
 
-    if (loadType === "R") {
+    if (circuitId.startsWith("pha1_half")) {
+      idSim[i] = Math.max(iVan1Theory[i] + (iVan1Theory[i] > 1e-4 ? (rnd() - 0.5) * 0.05 : 0), 0);
+    } else if (circuitId.startsWith("ac") || circuitId.startsWith("inv") || circuitId.startsWith("dcdc")) {
+      idSim[i] = iVan1Theory[i] + (Math.abs(iVan1Theory[i]) > 1e-4 ? (rnd() - 0.5) * 0.05 : 0);
+    } else if (loadType === "R") {
       idSim[i] = Math.max(udSim[i], 0) / R_LOAD;
     } else {
-      // L đủ lớn: dòng gần phẳng, gợn nhỏ theo bậc gợn mạch + nhiễu
+      // L đủ lớn cho chỉnh lưu 2 nửa & cầu: dòng liên tục phẳng
       idSim[i] =
         IdRef *
         (1 +
@@ -186,7 +190,21 @@ function buildHalf1P({ alphaDeg = 0, controlled = false, loadType }) {
     const cond = ph >= a && ph < lambda;
     ud[i] = cond ? u2 : 0;
     uVan1[i] = cond ? 0 : u2;
-    iVan1[i] = cond ? (rl ? Math.max(ud[i] / R_LOAD, 0) : Math.max(u2 / R_LOAD, 0)) : 0;
+    if (cond) {
+      if (rl) {
+        const thRad = (ph * Math.PI) / 180;
+        const alphaRad = (a * Math.PI) / 180;
+        const Z = Math.hypot(R_LOAD, 2 * Math.PI * F_GRID * L_LOAD);
+        const cur =
+          (UM2 / Z) *
+          (Math.sin(thRad - phi) - Math.sin(alphaRad - phi) * Math.exp(-((ph - a) * (Math.PI / 180)) / wTau));
+        iVan1[i] = Math.max(cur, 0);
+      } else {
+        iVan1[i] = Math.max(u2 / R_LOAD, 0);
+      }
+    } else {
+      iVan1[i] = 0;
+    }
     if (controlled) {
       gate[i] = ph >= a && ph < a + 10 ? 1 : 0;
     }
@@ -1858,12 +1876,21 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
     }))
     .sort((x, y) => x.theta - y.theta);
 
-  // Dòng qua van 1: tải R → bám ud/R (nửa sin / đoạn dây điện áp);
-  // tải RL (L lớn) → định mức phẳng Id. Mọi builder đều đi qua pass này.
+  // Dòng qua van 1:
+  // - Chỉnh lưu nửa chu kỳ / AC / Inverter / DC-DC: giữ nguyên dạng sóng do builder tính toán
+  // - Chỉnh lưu 2 nửa & cầu tải R: bám ud/R
+  // - Chỉnh lưu 2 nửa & cầu tải RL (L lớn): dòng liên tục định mức phẳng IdFlat
+  const isSpecialWave =
+    catalogId.startsWith("pha1_half") ||
+    catalogId.startsWith("ac") ||
+    catalogId.startsWith("inv") ||
+    catalogId.startsWith("dcdc");
+
   const IdFlat = IdSimAvg > 0 ? IdSimAvg : Math.max(UdTh, 0) / R_LOAD;
-  const iVan1Shaped = iVan1.map((v, i) =>
-    Math.abs(v) > 1e-6 ? (loadType === "RL" ? IdFlat : udSim[i] / R_LOAD) : 0
-  );
+  const iVan1Shaped = iVan1.map((v, i) => {
+    if (isSpecialWave) return v;
+    return Math.abs(v) > 1e-6 ? (loadType === "RL" ? IdFlat : udSim[i] / R_LOAD) : 0;
+  });
 
   return {
     circuitId: `${catalogId}_${loadType.toLowerCase()}_a${String(alphaDeg).padStart(3, "0")}`,

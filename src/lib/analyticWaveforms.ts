@@ -113,7 +113,18 @@ export function buildAnalyticExtras(
 
     // Biên độ dòng tải chuẩn hoá: RL (L lớn) ≈ hằng số; R theo hình ud
     let ampId: number;
-    if (rl) {
+    if (catalogId.startsWith("pha1_half")) {
+      const aRad = (alphaDeg * Math.PI) / 180;
+      const thRad = (p * Math.PI) / 180;
+      const phiRad = Math.atan(2 * Math.PI * 50 * (0.08 / 10));
+      const wTau = 2 * Math.PI * 50 * (0.08 / 10);
+      if (rl) {
+        const cur = Math.sin(thRad - phiRad) - Math.sin(aRad - phiRad) * Math.exp(-((p - alphaDeg) * (Math.PI / 180)) / wTau);
+        ampId = Math.max(cur, 0);
+      } else {
+        ampId = Math.max(phaseU.a, 0);
+      }
+    } else if (rl) {
       ampId = 1;
     } else if (!is3p) {
       ampId = Math.abs(phaseU.a);
