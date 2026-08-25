@@ -158,7 +158,7 @@ function buildHalf1P({ alphaDeg = 0, controlled = false, loadType }) {
   const events = [];
   const rl = loadType === "RL";
   const wTau = 2 * Math.PI * F_GRID * (L_LOAD / R_LOAD);
-  const phi = Math.atan(wTau * Math.PI / 180);
+  const phi = Math.atan(wTau);
 
   let lambda = 180;
   if (rl) {
@@ -168,7 +168,7 @@ function buildHalf1P({ alphaDeg = 0, controlled = false, loadType }) {
       const alphaRad = (a * Math.PI) / 180;
       const cur =
         (UM2 / Z) *
-        (Math.sin(thRad - phi) - Math.sin(alphaRad - phi) * Math.exp(-(d - a) / wTau));
+        (Math.sin(thRad - phi) - Math.sin(alphaRad - phi) * Math.exp(-((d - a) * (Math.PI / 180)) / wTau));
       if (cur <= 0) {
         lambda = d;
         break;
@@ -1229,20 +1229,19 @@ function buildACReg1P({ alphaDeg, loadType }) {
   const gate = new Array(n).fill(0);
   const events = [];
   const rl = loadType === "RL";
-  const wTau = 2 * Math.PI * F_GRID * (L_LOAD / R_LOAD); // ωτ (độ)
-  const phi = Math.atan(wTau * Math.PI / 180); // góc lệch pha φ (rad)
+  const wTau = 2 * Math.PI * F_GRID * (L_LOAD / R_LOAD);
+  const phi = Math.atan(wTau);
 
   // Nghiệm RL: i(θ) = (Um/Z)[sin(θ−φ) − sin(α−φ)e^{−(θ−α)/tanφ}] với θ tính từ điểm kích
   const Z = Math.hypot(R_LOAD, 2 * Math.PI * F_GRID * L_LOAD);
   const Um2 = Math.SQRT2 * U2;
   const currentAt = (degFromFire, fireDeg, sign) => {
-    const th = (degFromFire * Math.PI) / 180;
+    const th = ((fireDeg + degFromFire) * Math.PI) / 180;
+    const aRad = (fireDeg * Math.PI) / 180;
     if (!rl) return (Um2 / R_LOAD) * Math.sin(th) * sign;
-    const phiDeg = (phi * 180) / Math.PI;
-    const tauDeg = wTau;
     const i =
       (Um2 / Z) *
-      (Math.sin(th - phi) - Math.sin(((fireDeg - phiDeg) * Math.PI) / 180) * Math.exp(-degFromFire / tauDeg));
+      (Math.sin(th - phi) - Math.sin(aRad - phi) * Math.exp(-((degFromFire * Math.PI) / 180) / wTau));
     return i * sign;
   };
 
