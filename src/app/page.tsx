@@ -452,6 +452,40 @@ export default function Home() {
               thetaDeg={thetaDeg}
             />
           </div>
+
+          <TheoryVsSimulinkTable circuit={activeCircuit} />
+
+          <section className="panel" aria-label="Danh sách mốc chuyển mạch">
+            <div className="panel-header">
+              <Zap size={13} style={{ color: "var(--sig-gate)" }} aria-hidden /> Mốc chuyển mạch
+            </div>
+            <ol className="max-h-[300px] divide-y divide-line overflow-y-auto">
+              {milestones.map((m, i) => (
+                <li key={`${m.theta}-${m.title}`}>
+                  <button
+                    type="button"
+                    onClick={() => jumpToMilestone(m.theta)}
+                    className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-2 ${
+                      i === currentMilestoneIndex ? "bg-surface-2" : ""
+                    }`}
+                  >
+                    <span className="mt-0.5 shrink-0 rounded bg-surface-3 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-ink-2">
+                      {m.theta}°
+                    </span>
+                    <span className="text-xs leading-snug text-ink-2">
+                      {m.title}
+                      <ChevronRight size={11} className="ml-1 inline text-ink-3" aria-hidden />
+                    </span>
+                  </button>
+                </li>
+              ))}
+              {milestones.length === 0 && (
+                <li className="px-3 py-6 text-center text-xs text-ink-3">
+                  Chọn mạch để xem mốc chuyển mạch
+                </li>
+              )}
+            </ol>
+          </section>
         </section>
 
         {/* ============================ CỘT PHẢI ============================ */}
@@ -548,39 +582,6 @@ export default function Home() {
             </div>
           </div>
 
-          <TheoryVsSimulinkTable circuit={activeCircuit} />
-
-          <section className="panel" aria-label="Danh sách mốc chuyển mạch">
-            <div className="panel-header">
-              <Zap size={13} style={{ color: "var(--sig-gate)" }} aria-hidden /> Mốc chuyển mạch
-            </div>
-            <ol className="max-h-[300px] divide-y divide-line overflow-y-auto">
-              {milestones.map((m, i) => (
-                <li key={`${m.theta}-${m.title}`}>
-                  <button
-                    type="button"
-                    onClick={() => jumpToMilestone(m.theta)}
-                    className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-2 ${
-                      i === currentMilestoneIndex ? "bg-surface-2" : ""
-                    }`}
-                  >
-                    <span className="mt-0.5 shrink-0 rounded bg-surface-3 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-ink-2">
-                      {m.theta}°
-                    </span>
-                    <span className="text-xs leading-snug text-ink-2">
-                      {m.title}
-                      <ChevronRight size={11} className="ml-1 inline text-ink-3" aria-hidden />
-                    </span>
-                  </button>
-                </li>
-              ))}
-              {milestones.length === 0 && (
-                <li className="px-3 py-6 text-center text-xs text-ink-3">
-                  Chọn mạch để xem mốc chuyển mạch
-                </li>
-              )}
-            </ol>
-          </section>
         </aside>
       </main>
 
