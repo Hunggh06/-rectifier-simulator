@@ -40,7 +40,8 @@ import { buildAnalyticExtras } from "@/lib/analyticWaveforms";
 import { CircuitSchematic } from "@/components/schematic/CircuitSchematic";
 import { MultiChannelCanvas } from "@/components/oscilloscope/MultiChannelCanvas";
 import { MilestoneExplanation } from "@/components/pedagogical/MilestoneExplanation";
-import { TheoryVsSimulinkTable } from "@/components/comparison/TheoryVsSimulinkTable";
+import { StageExplanationTable } from "@/components/pedagogical/StageExplanationTable";
+import { FormulaPanel } from "@/components/pedagogical/FormulaPanel";
 import { Formula } from "@/components/ui/Formula";
 
 const MOCK_DATASET = mockDatasetJson as unknown as SimulatorDataset;
@@ -421,32 +422,11 @@ export default function Home() {
             </div>
           </section>
 
-          {activeEntry && (
-            <section className="panel" aria-label="Công thức tính toán">
-              <div className="panel-header">
-                <Atom size={13} aria-hidden /> Công thức
-              </div>
-              <div className="space-y-3 p-3">
-                <div className="overflow-x-auto rounded-md bg-surface-2 px-3 py-3 text-center">
-                  <Formula tex={activeEntry.formulaTex} displayMode />
-                </div>
-                <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 font-mono text-[11px] tabular-nums">
-                  <dt className="text-ink-3">U_d0 / U_2</dt>
-                  <dd className="text-right text-ink-1">{activeEntry.ud0FactorVsU2.toFixed(2)}</dd>
-                  <dt className="text-ink-3">Số van</dt>
-                  <dd className="text-right text-ink-1">{activeEntry.valveLabels.length}</dd>
-                  <dt className="text-ink-3">Điều khiển</dt>
-                  <dd className="text-right text-ink-1">
-                    {activeEntry.controlled ? "SCR" : "Diode"}
-                  </dd>
-                </dl>
-              </div>
-            </section>
-          )}
+          <FormulaPanel entry={activeEntry} />
         </aside>
 
         {/* ============================ CỘT GIỮA ============================ */}
-        <section className="col-span-12 space-y-4 lg:col-span-4" aria-label="Sơ đồ mạch">
+        <section className="col-span-12 space-y-4 lg:col-span-4" aria-label="Sơ đồ mạch và thuyết minh">
           <div className="panel p-3">
             <CircuitSchematic
               entry={activeEntry}
@@ -456,7 +436,12 @@ export default function Home() {
             />
           </div>
 
-          <TheoryVsSimulinkTable circuit={activeCircuit} />
+          <StageExplanationTable
+            catalogId={activeEntry?.catalogId ?? null}
+            alphaDeg={selectedAlphaDeg}
+            loadType={selectedLoadType}
+            thetaDeg={thetaDeg}
+          />
 
           <section className="panel" aria-label="Danh sách mốc chuyển mạch">
             <div className="panel-header">
