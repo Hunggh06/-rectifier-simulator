@@ -1150,6 +1150,13 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
     }))
     .sort((x, y) => x.theta - y.theta);
 
+  // Dòng qua van 1: tải R → bám ud/R (nửa sin / đoạn dây điện áp);
+  // tải RL (L lớn) → định mức phẳng Id. Mọi builder đều đi qua pass này.
+  const IdFlat = IdSimAvg > 0 ? IdSimAvg : Math.max(UdTh, 0) / R_LOAD;
+  const iVan1Shaped = iVan1Sim.map((v, i) =>
+    Math.abs(v) > 1e-6 ? (loadType === "RL" ? IdFlat : udSim[i] / R_LOAD) : 0
+  );
+
   return {
     circuitId: `${catalogId}_${loadType.toLowerCase()}_a${String(alphaDeg).padStart(3, "0")}`,
     circuitName: `${cat.circuitName} — α=${alphaDeg}°, tải ${loadType}`,
@@ -1178,7 +1185,7 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
       udSimulink: udSim.map(round2),
       idSimulink: idSim.map(round2),
       uVan1: uVan1Sim.map(round2),
-      iVan1: iVan1.map(round2),
+      iVan1: iVan1Shaped.map(round2),
       gatePulses,
     },
     milestones,

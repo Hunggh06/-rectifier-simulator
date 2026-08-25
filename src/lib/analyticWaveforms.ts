@@ -11,6 +11,8 @@ export interface ValveCurrentSample {
   on: boolean;
   /** đoạn dẫn dòng xả tự do freewheeling (vẽ nét gạch) */
   fw: boolean;
+  /** biên độ tức thời chuẩn hoá 0..1: tải R theo hình ud, tải RL ≈ phẳng */
+  amp: number;
 }
 
 export interface AnalyticExtras {
@@ -73,6 +75,7 @@ export function buildAnalyticExtras(
   loadType: "R" | "RL",
   controlled: boolean
 ): AnalyticExtras {
+  const rl = loadType === "RL";
   const thetaDeg: number[] = [];
   for (let t = 0; t < 720; t += 1) thetaDeg.push(t);
 
@@ -87,19 +90,39 @@ export function buildAnalyticExtras(
 
   const is3p = catalogId.startsWith("pha3");
   const isBridge = catalogId.startsWith("pha1_bridge") || catalogId.startsWith("pha3_bridge");
+  const topPhaseOf: Record<string, string> = { V1: "a", V3: "b", V5: "c", D1: "a", D3: "b", D5: "c" };
+  const botPhaseOf: Record<string, string> = { V4: "a", V6: "b", V2: "c", D4: "a", D6: "b", D2: "c" };
 
   for (const th of thetaDeg) {
     const active = analyticConduction(catalogId, alphaDeg, loadType, th);
     const actSet = new Set(active);
     const fw = isFreewheelPair(catalogId, active);
-    valveLabels.forEach((lbl, vi) => {
-      valveCurrents[vi].push({ on: actSet.has(lbl), fw: fw && actSet.has(lbl) });
-    });
 
     const p = mod360(th);
     phaseU.a = Math.sin(rad(p));
     phaseU.b = Math.sin(rad(p - 120));
     phaseU.c = Math.sin(rad(p - 240));
+
+    // Biên độ dòng tải chuẩn hoá: RL (L lớn) ≈ hằng số; R theo hình ud
+    let ampId: number;
+    if (rl) {
+      ampId = 1;
+    } else if (!is3p) {
+      ampId = Math.abs(phaseU.a);
+    } else if (!isBridge) {
+      ampId = Math.max(phaseU.a, phaseU.b, phaseU.c);
+    } else {
+      const tp = topPhaseOf[active[0] ?? ""];
+      const bp = botPhaseOf[active[1] ?? ""];
+      const udPu = tp && bp ? phaseU[tp as "a" | "b" | "c"] - phaseU[bp as "a" | "b" | "c"] : 0;
+      ampId = Math.min(Math.max(udPu / Math.sqrt(3), 0), 1);
+    }
+
+    valveLabels.forEach((lbl, vi) => {
+      const on = actSet.has(lbl);
+      valveCurrents[vi].push({ on, fw: fw && on, amp: on ? ampId : 0 });
+    });
+
     if (phiE && phiF) {
       const peak = Math.SQRT2 * 100;
       phiE.push(peak * Math.max(phaseU.a, phaseU.b, phaseU.c));

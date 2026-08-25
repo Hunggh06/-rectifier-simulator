@@ -63,6 +63,7 @@ export function MultiChannelCanvas({
     label: string;
     kind?: "wave" | "valveRows" | "gateRows";
     scaleGroup?: "V" | "A";
+    height?: number;
     traces: TraceDef[];
     valveRows?: ValveRowSet;
     gateRows?: GateRowSet;
@@ -135,6 +136,7 @@ export function MultiChannelCanvas({
       {
         label: "CH3 · ID — DÒNG ĐIỆN TẢI [A]",
         scaleGroup: "A",
+        height: 72,
         traces: [mkTrace("id", "var(--sig-on)", "idSimulink", layers.idSimulink)],
       },
       {
@@ -145,17 +147,20 @@ export function MultiChannelCanvas({
       {
         label: "CH5 · IT — DÒNG QUA VAN 1 [A]",
         scaleGroup: "A",
+        height: 72,
         traces: [mkTrace("ivan", "#60a5fa", "iVan1", layers.iVan1)],
       },
       hasGates
         ? {
             label: "CH6 · GATE X₁…Xₙ" + (isThreePhase ? " (XUNG KÉP 60°)" : "") + " [–]",
             kind: "gateRows",
+            height: 96,
             traces: [],
             gateRows: { labels: extras!.gateLabels, pulses: extras!.gates },
           }
         : {
             label: "CH6 · GATE — XÚNG KÍCH VAN 1 [–]",
+            height: 72,
             traces: [
               mkTrace("gate", "var(--sig-gate)", "gatePulses", layers.gatePulses, {
                 isDigital: true,
@@ -166,13 +171,15 @@ export function MultiChannelCanvas({
     ];
     if (hasValveRows) {
       list.splice(5, 0, {
-        label: "CH5b · I QUA TỪNG VAN — 120°/180° (gạch = freewheel)",
+        label: "CH5b · I QUA TỪNG VAN — tải R: nửa sin · tải RL: phẳng (gạch = freewheel)",
         kind: "valveRows",
+        height: 152,
         traces: [],
         valveRows: { labels: extras!.valveLabels, cells: extras!.valveCurrents },
       });
       list.push({
         label: (isThreePhase ? "CH7 · IA = IV1 − IV4" : "CH7 · I2") + " — DÒNG PHA MBA [–]",
+        height: 72,
         traces: [
           mkTrace("iline", "#c084fc", "custom", true, {
             custom: extras!.lineCurrent,
@@ -200,7 +207,10 @@ export function MultiChannelCanvas({
     return niceFraction * Math.pow(10, exponent);
   }, []);
 
-  const totalContentHeight = lanes.length * (CHANNEL_HEIGHT + HEADER_HEIGHT);
+  const totalContentHeight = lanes.reduce(
+    (sum, l) => sum + (l.height ?? CHANNEL_HEIGHT) + HEADER_HEIGHT,
+    0
+  );
   const canvasHeight = totalContentHeight + X_AXIS_HEIGHT + TOP_PADDING + BOTTOM_PADDING;
 
   const getTraceData = useCallback(
@@ -322,11 +332,12 @@ export function MultiChannelCanvas({
 
     // Vẽ từng lane — lane có thể chứa nhiều trace chồng nhau (vd CH2: lý thuyết + Simulink)
     lanes.forEach((lane, laneIndex) => {
-      const channelTop = TOP_PADDING + laneIndex * (CHANNEL_HEIGHT + HEADER_HEIGHT);
+      const laneH = lane.height ?? CHANNEL_HEIGHT;
+      const channelTop = TOP_PADDING + lanes.slice(0, laneIndex).reduce((s, l) => s + (l.height ?? CHANNEL_HEIGHT) + HEADER_HEIGHT, 0);
       const headerY = channelTop;
       const contentTop = channelTop + HEADER_HEIGHT;
-      const contentBottom = contentTop + CHANNEL_HEIGHT;
-      const centerY = contentTop + CHANNEL_HEIGHT / 2;
+      const contentBottom = contentTop + laneH;
+      const centerY = contentTop + laneH / 2;
 
       const visibleTraces = lane.traces.filter((t) => t.visible);
 
@@ -339,7 +350,8 @@ export function MultiChannelCanvas({
       if (lane.kind === "valveRows" && lane.valveRows) {
         const { labels, cells } = lane.valveRows;
         const n = Math.max(1, labels.length);
-        const rowH = CHANNEL_HEIGHT / n;
+        const rowH = laneH / n;
+        const ampH = rowH * 0.38;
         labels.forEach((lbl, ri) => {
           const rTop = contentTop + ri * rowH;
           const rCy = rTop + rowH / 2;
@@ -353,54 +365,65 @@ export function MultiChannelCanvas({
             ctx.stroke();
             ctx.globalAlpha = 1;
           }
-          ctx.fillStyle = ROW_PALETTE[ri % ROW_PALETTE.length];
-          ctx.font = "10px monospace";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
+          ctx.strokeStyle = ROW_PALETTE[ri % ROW_PALETTE.length];
+          ctx.globalAlpha = 0.3;
+          ctx.setLineDash([2, 4]);
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.moveTo(plotLeft, rCy);
+          ctx.lineTo(plotRight, rCy);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
 
+          const rowColor = ROW_PALETTE[ri % ROW_PALETTE.length];
           const samples = cells[ri] ?? [];
-          const blkH = rowH * 0.62;
-          let runStart = -1;
-          let runFw = false;
-          const flush = (endIdxExclusive: number) => {
-            if (runStart < 0) return;
-            const d0 = extras?.thetaDeg[runStart] ?? runStart;
-            const d1 = endIdxExclusive >= samples.length ? 720 : extras?.thetaDeg[endIdxExclusive] ?? endIdxExclusive;
-            const x0 = plotLeft + (d0 / 720) * plotWidth;
-            const x1 = plotLeft + (d1 / 720) * plotWidth;
-            if (x1 - x0 < 0.5) {
-              runStart = -1;
-              return;
+          const yOf = (s: ValveCurrentSample) => rCy - (s.on ? s.amp : 0) * ampH;
+          ctx.strokeStyle = rowColor;
+          ctx.lineWidth = 1.6;
+          ctx.lineJoin = "round";
+          ctx.beginPath();
+          samples.forEach((s, si) => {
+            const d = extras?.thetaDeg[si] ?? si;
+            const x = plotLeft + (d / 720) * plotWidth;
+            const y = yOf(s);
+            if (si === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          });
+          ctx.lineTo(plotRight, yOf(samples[samples.length - 1] ?? { on: false, fw: false, amp: 0 }));
+          ctx.stroke();
+
+          ctx.setLineDash([3, 3]);
+          ctx.lineWidth = 1.8;
+          let run = -1;
+          const flushFw = (end: number) => {
+            if (run < 0) return;
+            ctx.beginPath();
+            for (let si = run; si < end; si++) {
+              const s = samples[si];
+              const d = extras?.thetaDeg[si] ?? si;
+              const x = plotLeft + (d / 720) * plotWidth;
+              const y = yOf(s);
+              if (si === run) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
             }
-            if (runFw) {
-              ctx.setLineDash([3, 3]);
-              ctx.strokeStyle = ROW_PALETTE[ri % ROW_PALETTE.length];
-              ctx.lineWidth = 1.2;
-              ctx.strokeRect(x0, rCy - blkH / 2, x1 - x0, blkH);
-              ctx.setLineDash([]);
-              ctx.fillStyle = ROW_PALETTE[ri % ROW_PALETTE.length];
-              ctx.globalAlpha = 0.14;
-              ctx.fillRect(x0, rCy - blkH / 2, x1 - x0, blkH);
-              ctx.globalAlpha = 1;
-            } else {
-              ctx.fillStyle = ROW_PALETTE[ri % ROW_PALETTE.length];
-              ctx.fillRect(x0, rCy - blkH / 2, x1 - x0, blkH);
-            }
-            runStart = -1;
+            ctx.stroke();
+            run = -1;
           };
           samples.forEach((s, si) => {
-            if (s.on) {
-              if (runStart < 0) {
-                runStart = si;
-                runFw = s.fw;
-              }
-            } else flush(si);
+            if (s.on && s.fw) {
+              if (run < 0) run = si;
+            } else flushFw(si);
           });
-          flush(samples.length);
+          flushFw(samples.length);
+          ctx.setLineDash([]);
 
           ctx.fillStyle = "#0b0f17";
           ctx.fillRect(plotLeft + 2, rCy - 7, 26, 14);
-          ctx.fillStyle = ROW_PALETTE[ri % ROW_PALETTE.length];
+          ctx.fillStyle = rowColor;
+          ctx.font = "10px monospace";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
           ctx.fillText(lbl, plotLeft + 4, rCy);
         });
         return;
@@ -409,7 +432,7 @@ export function MultiChannelCanvas({
       if (lane.kind === "gateRows" && lane.gateRows) {
         const { labels, pulses } = lane.gateRows;
         const n = Math.max(1, labels.length);
-        const rowH = CHANNEL_HEIGHT / n;
+        const rowH = laneH / n;
         const gateCol = getColor("var(--sig-gate)");
         labels.forEach((lbl, ri) => {
           const rTop = contentTop + ri * rowH;
@@ -459,7 +482,7 @@ export function MultiChannelCanvas({
 
       if (visibleTraces.length === 0) {
         ctx.fillStyle = "rgba(255,255,255,0.02)";
-        ctx.fillRect(plotLeft, contentTop, plotWidth, CHANNEL_HEIGHT);
+        ctx.fillRect(plotLeft, contentTop, plotWidth, laneH);
         ctx.fillStyle = ink3Color;
         ctx.font = "10px monospace";
         ctx.textAlign = "center";
