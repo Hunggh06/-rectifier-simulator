@@ -422,7 +422,11 @@ export default function Home() {
             </div>
           </section>
 
-          <FormulaPanel entry={activeEntry} />
+          <FormulaPanel
+            entry={activeEntry}
+            alphaDeg={selectedAlphaDeg}
+            loadType={selectedLoadType}
+          />
         </aside>
 
         {/* ============================ CỘT GIỮA ============================ */}

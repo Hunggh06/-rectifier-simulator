@@ -8,9 +8,13 @@ import type { CatalogEntry } from "@/types/simulator";
 
 export function FormulaPanel({
   entry,
+  alphaDeg = 0,
+  loadType = "R",
   className = "",
 }: {
   entry: CatalogEntry | null;
+  alphaDeg?: number;
+  loadType?: "R" | "RL";
   className?: string;
 }): JSX.Element {
   const explanation = useMemo(
@@ -18,7 +22,12 @@ export function FormulaPanel({
     [entry]
   );
 
-  if (!entry || !explanation) {
+  const formulas = useMemo(() => {
+    if (!explanation) return null;
+    return explanation.getFormulas(alphaDeg, loadType);
+  }, [explanation, alphaDeg, loadType]);
+
+  if (!entry || !formulas) {
     return (
       <section
         aria-label="Công thức tính toán"
@@ -33,8 +42,6 @@ export function FormulaPanel({
       </section>
     );
   }
-
-  const { formulas } = explanation;
 
   return (
     <section

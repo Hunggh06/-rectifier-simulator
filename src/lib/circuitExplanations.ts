@@ -25,32 +25,39 @@ export interface CircuitStage {
 }
 
 export interface CircuitExplanationData {
-  formulas: CircuitFormulaSet;
+  getFormulas: (alphaDeg: number, loadType: "R" | "RL") => CircuitFormulaSet;
   getStages: (alphaDeg: number, loadType: "R" | "RL") => CircuitStage[];
 }
-
-const mod360 = (x: number) => ((x % 360) + 360) % 360;
 
 export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   /* ======================================================================== */
   /* CHƯƠNG 2: CHỈNH LƯU 1 PHA                                                */
   /* ======================================================================== */
   pha1_half_diode: {
-    formulas: {
-      uOut: "U_d = \\frac{\\sqrt{2}}{\\pi} U_2 \\approx 0{,}45\\,U_2 = 45{,}0\\text{ V}",
-      uRevMax: "U_{ng,max} = \\sqrt{2}\\,U_2 = U_{m2} = 141{,}4\\text{ V}",
-      iValveAvg: "I_{v,tb} = I_d = \\frac{U_d}{R}",
-      iValveRms: "I_{v,rms} = \\frac{U_{m2}}{2R} = \\frac{U_2}{\\sqrt{2}R}",
-      sBa: "S_{ba} \\approx 3{,}09\\,P_d\\; (\\text{hiệu suất sử dụng biến áp rất thấp})",
-      ripple: "f_{g\\text{ợ}n} = f = 50\\text{ Hz},\\quad K_{nb} = \\frac{\\pi}{2} \\approx 157\\%",
-      special: {
-        label: "Đặc điểm chỉnh lưu nửa chu kỳ",
-        tex: "\\text{Từ thông lõi biến áp bị từ hóa 1 chiều; chỉ dẫn dòng trong nửa chu kỳ } u_2 > 0",
-      },
+    getFormulas: (_a, loadType) => {
+      const rl = loadType === "RL";
+      return {
+        uOut: rl
+          ? "U_d = \\frac{\\sqrt{2}U_2}{2\\pi}(1 - \\cos\\lambda) \\approx 27{,}4\\text{ V}\\; (\\lambda \\approx 257^\\circ,\\; u_d \\text{ bị kéo âm})"
+          : "U_d = \\frac{\\sqrt{2}}{\\pi} U_2 \\approx 0{,}45\\,U_2 = 45{,}0\\text{ V}",
+        uRevMax: "U_{ng,max} = \\sqrt{2}\\,U_2 = U_{m2} = 141{,}4\\text{ V}",
+        iValveAvg: "I_{v,tb} = I_d = \\frac{U_d}{R}",
+        iValveRms: rl
+          ? "I_{v,rms} = I_{d,rms} \\approx 2{,}73\\text{ A}\\; (\\text{tính từ tích phân sóng } i_d)"
+          : "I_{v,rms} = \\frac{U_{m2}}{2R} = \\frac{U_2}{\\sqrt{2}R} \\approx 7{,}07\\text{ A}",
+        sBa: "S_{ba} \\approx 3{,}09\\,P_d\\; (\\text{hiệu suất biến áp rất thấp do từ hóa 1 chiều})",
+        ripple: "f_{g\\text{ợ}n} = f = 50\\text{ Hz},\\quad K_{nb} = \\frac{\\pi}{2} \\approx 157\\%",
+        special: {
+          label: rl ? "Góc dẫn van λ (tải R-L)" : "Đặc điểm chỉnh lưu nửa chu kỳ",
+          tex: rl
+            ? "\\sin(\\lambda - \\varphi) + \\sin\\varphi\\,e^{-\\lambda/\\tan\\varphi} = 0 \\implies \\lambda \\approx 257^\\circ"
+            : "\\text{Từ thông lõi biến áp bị từ hóa 1 chiều; chỉ dẫn dòng trong nửa chu kỳ } u_2 > 0",
+        },
+      };
     },
     getStages: (_a, loadType) => {
       const rl = loadType === "RL";
-      const endDeg = rl ? 245 : 180;
+      const endDeg = rl ? 257 : 180;
       return [
         {
           id: "half1p_d_pos",
@@ -67,7 +74,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
               : "i_d(\\theta) = \\frac{\\sqrt{2}U_2}{R}\\sin\\theta",
           physicsExplanation:
             rl
-              ? "u2 dương làm Anode D1 dương hơn Cathode. D1 mở thông nối u2 ra tải. Tại 180°, u2 đổi dấu âm nhưng năng lượng từ trường trong cuộn cảm L tiếp tục duy trì dòng qua D1 đến λ ≈ 245° làm ud bị kéo âm."
+              ? "u2 dương làm Anode D1 dương hơn Cathode. D1 mở thông nối u2 ra tải. Tại 180°, u2 đổi dấu âm nhưng năng lượng từ trường trong cuộn cảm L tiếp tục duy trì dòng qua D1 đến λ ≈ 257° làm ud bị kéo âm."
               : "u2 dương làm D1 phân cực thuận mở thông. Dòng điện và điện áp tải có dạng nửa hình sin. D1 tự khóa tại 180° khi u2 về 0.",
         },
         {
@@ -86,23 +93,34 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
       ];
     },
   },
+
   pha1_half_thyristor: {
-    formulas: {
-      uOut: "U_{d\\alpha} = \\frac{\\sqrt{2}U_2}{2\\pi}(1 + \\cos\\alpha) = \\frac{U_{d0}}{2}(1 + \\cos\\alpha)",
-      uRevMax: "U_{ng,max} = \\sqrt{2}\\,U_2 = 141{,}4\\text{ V},\\quad U_{th,max} = \\sqrt{2}\\,U_2 = 141{,}4\\text{ V}",
-      iValveAvg: "I_{v,tb} = I_d = \\frac{U_{d\\alpha}}{R}",
-      iValveRms: "I_{v,rms} = \\frac{\\sqrt{2}U_2}{2R}\\sqrt{\\frac{1}{\\pi}\\left(\\pi - \\alpha + \\frac{\\sin 2\\alpha}{2}\\right)}",
-      sBa: "S_{ba} \\approx 3{,}09\\,P_d",
-      ripple: "f_{g\\text{ợ}n} = f = 50\\text{ Hz}",
-      special: {
-        label: "Phạm vi góc điều khiển",
-        tex: "0 \\le \\alpha \\le \\pi\\; (\\text{điều chỉnh } U_d \\text{ từ } 0{,}45\\,U_2 \\to 0)",
-      },
+    getFormulas: (alpha, loadType) => {
+      const a = alpha;
+      const rl = loadType === "RL";
+      return {
+        uOut: rl
+          ? `U_{d\\alpha} = \\frac{\\sqrt{2}U_2}{2\\pi}(\\cos\\alpha - \\cos\\lambda)\\; (\\lambda \\approx ${Math.round(257 - a * 0.25)}^\\circ)`
+          : `U_{d\\alpha} = \\frac{\\sqrt{2}U_2}{2\\pi}(1 + \\cos\\alpha) = \\frac{U_{d0}}{2}(1 + \\cos\\alpha)`,
+        uRevMax: "U_{ng,max} = \\sqrt{2}\\,U_2 = 141{,}4\\text{ V},\\quad U_{th,max} = \\sqrt{2}\\,U_2 = 141{,}4\\text{ V}",
+        iValveAvg: "I_{v,tb} = I_d = \\frac{U_{d\\alpha}}{R}",
+        iValveRms: rl
+          ? "I_{v,rms} = I_{d,rms}\\; (\\text{tính từ nghiệm quá độ R-L})"
+          : "I_{v,rms} = \\frac{\\sqrt{2}U_2}{2R}\\sqrt{\\frac{1}{\\pi}\\left(\\pi - \\alpha + \\frac{\\sin 2\\alpha}{2}\\right)}",
+        sBa: "S_{ba} \\approx 3{,}09\\,P_d",
+        ripple: "f_{g\\text{ợ}n} = f = 50\\text{ Hz}",
+        special: {
+          label: rl ? "Góc tắt dòng λ (nghiệm vi phân R-L)" : "Phạm vi góc điều khiển (tải R)",
+          tex: rl
+            ? "\\sin(\\lambda - \\varphi) - \\sin(\\alpha - \\varphi)e^{-\\frac{\\lambda - \\alpha}{\\tan\\varphi}} = 0"
+            : "0 \\le \\alpha \\le \\pi\\; (\\text{điều chỉnh } U_d \\text{ từ } 0{,}45\\,U_2 \\to 0)",
+        },
+      };
     },
     getStages: (alpha, loadType) => {
       const a = alpha;
       const rl = loadType === "RL";
-      const endDeg = rl ? Math.min(180 + a + 65, 360) : 180;
+      const endDeg = rl ? Math.round(Math.min(257 - a * 0.25, 360)) : 180;
       return [
         {
           id: "half1p_th_wait",
@@ -132,7 +150,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
               : "i_d(\\theta) = \\frac{\\sqrt{2}U_2}{R}\\sin\\theta",
           physicsExplanation:
             rl
-              ? "Xung kích mở V1 tại góc α: u2 nối ra tải. Khi u2 đổi dấu âm sau 180°, cuộn cảm L xả năng lượng ép V1 tiếp tục dẫn kéo ud âm tới khi dòng tắt hẳn."
+              ? `Xung kích mở V1 tại góc α: u2 nối ra tải. Khi u2 đổi dấu âm sau 180°, cuộn cảm L xả năng lượng ép V1 tiếp tục dẫn kéo ud âm tới λ ≈ ${endDeg}°.`
               : "Xung kích mở V1 tại góc α: u2 nối trực tiếp ra tải, u_d bám theo hình sin từ α đến 180°. Tại 180°, u2 về 0 làm dòng tải về 0 và V1 tự khóa.",
         },
         {
@@ -151,8 +169,9 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
       ];
     },
   },
+
   pha1_tap_diode: {
-    formulas: {
+    getFormulas: (_a, _l) => ({
       uOut: "U_d = \\frac{2\\sqrt{2}}{\\pi} U_2 \\approx 0{,}9\\,U_2 = 89{,}9\\text{ V}",
       uRevMax: "U_{ng,max} = 2\\sqrt{2}\\,U_2 \\approx 282{,}8\\text{ V} = 2\\,U_{m2}",
       iValveAvg: "I_{v,tb} = \\frac{I_d}{2} = \\frac{U_d}{2R}",
@@ -163,7 +182,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
         label: "Điểm giữa biến áp",
         tex: "u_{21} = -u_{22} = \\sqrt{2}U_2\\sin\\theta",
       },
-    },
+    }),
     getStages: (_a, loadType) => [
       {
         id: "tap1p_d_pos",
@@ -195,17 +214,25 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   },
 
   pha1_tap_thyristor: {
-    formulas: {
-      uOut: "U_{d\\alpha} = \\frac{2\\sqrt{2}}{\\pi} U_2\\cos\\alpha = U_{d0}\\cos\\alpha",
-      uRevMax: "U_{ng,max} = 2\\sqrt{2}\\,U_2 = 2\\,U_{m2} = 282{,}8\\text{ V}",
-      iValveAvg: "I_{v,tb} = \\frac{I_d}{2}",
-      iValveRms: "I_{v,rms} = \\frac{I_d}{\\sqrt{2}}",
-      sBa: "S_{ba} = 1{,}48\\,P_d",
-      ripple: "f_{g\\text{ợ}n} = 2f = 100\\text{ Hz}",
-      special: {
-        label: "Phạm vi góc điều khiển",
-        tex: "0 \\le \\alpha \\le \\pi\\text{ (chế độ liên tục/gián đoạn)}",
-      },
+    getFormulas: (alpha, loadType) => {
+      const a = alpha;
+      const rl = loadType === "RL";
+      return {
+        uOut: rl
+          ? "U_{d\\alpha} = \\frac{2\\sqrt{2}}{\\pi} U_2\\cos\\alpha = U_{d0}\\cos\\alpha\\; (\\text{tải R-L, dòng liên tục})"
+          : "U_{d\\alpha} = \\frac{\\sqrt{2}U_2}{\\pi}(1+\\cos\\alpha) = \\frac{U_{d0}}{2}(1+\\cos\\alpha)\\; (\\text{tải R, dòng gián đoạn})",
+        uRevMax: "U_{ng,max} = 2\\sqrt{2}\\,U_2 = 2\\,U_{m2} = 282{,}8\\text{ V}",
+        iValveAvg: "I_{v,tb} = \\frac{I_d}{2}",
+        iValveRms: "I_{v,rms} = \\frac{I_d}{\\sqrt{2}}",
+        sBa: "S_{ba} = 1{,}48\\,P_d",
+        ripple: "f_{g\\text{ợ}n} = 2f = 100\\text{ Hz}",
+        special: {
+          label: rl ? "Chế độ tải R-L" : "Chế độ tải R thuần trở",
+          tex: rl
+            ? "\\alpha > 90^\\circ \\implies U_{d\\alpha} < 0\\text{ (nghịch lưu phụ thuộc)}"
+            : "u_d(\\theta) \\ge 0\\text{ mọi góc } \\alpha\\; (\\text{dòng ngắt tại } 180^\\circ)",
+        },
+      };
     },
     getStages: (alpha, loadType) => {
       const a = alpha;
@@ -273,7 +300,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   },
 
   pha1_bridge_diode: {
-    formulas: {
+    getFormulas: (_a, _l) => ({
       uOut: "U_d = \\frac{2\\sqrt{2}}{\\pi} U_2 \\approx 0{,}9\\,U_2 = 89{,}9\\text{ V}",
       uRevMax: "U_{ng,max} = \\sqrt{2}\\,U_2 = U_{m2} = 141{,}4\\text{ V}\\; (\\text{bằng } 1/2 \\text{ sơ đồ tia})",
       iValveAvg: "I_{v,tb} = \\frac{I_d}{2} = \\frac{U_d}{2R}",
@@ -284,7 +311,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
         label: "Đánh số chéo giáo trình",
         tex: "\\text{Cặp dẫn: } (D_1, D_2) \\leftrightarrow (D_3, D_4)",
       },
-    },
+    }),
     getStages: (_a, loadType) => [
       {
         id: "b1p_d_pos",
@@ -316,17 +343,24 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   },
 
   pha1_bridge_thyristor: {
-    formulas: {
-      uOut: "U_{d\\alpha} = \\frac{2\\sqrt{2}}{\\pi} U_2\\cos\\alpha = U_{d0}\\cos\\alpha",
-      uRevMax: "U_{ng,max} = \\sqrt{2}\\,U_2 = 141{,}4\\text{ V}",
-      iValveAvg: "I_{v,tb} = \\frac{I_d}{2}",
-      iValveRms: "I_{v,rms} = \\frac{I_d}{\\sqrt{2}}",
-      sBa: "S_{ba} = 1{,}23\\,P_d",
-      ripple: "f_{g\\text{ợ}n} = 2f = 100\\text{ Hz}",
-      special: {
-        label: "Nghịch lưu phụ thuộc",
-        tex: "\\alpha > 90^\\circ,\\; E_d < 0 \\implies U_{d\\alpha} < 0\\text{ (trả năng lượng về lưới)}",
-      },
+    getFormulas: (alpha, loadType) => {
+      const rl = loadType === "RL";
+      return {
+        uOut: rl
+          ? "U_{d\\alpha} = \\frac{2\\sqrt{2}}{\\pi} U_2\\cos\\alpha = U_{d0}\\cos\\alpha\\; (\\text{tải R-L, dòng liên tục})"
+          : "U_{d\\alpha} = \\frac{\\sqrt{2}U_2}{\\pi}(1 + \\cos\\alpha) = \\frac{U_{d0}}{2}(1 + \\cos\\alpha)\\; (\\text{tải R, dòng gián đoạn})",
+        uRevMax: "U_{ng,max} = \\sqrt{2}\\,U_2 = 141{,}4\\text{ V}",
+        iValveAvg: "I_{v,tb} = \\frac{I_d}{2}",
+        iValveRms: "I_{v,rms} = \\frac{I_d}{\\sqrt{2}}",
+        sBa: "S_{ba} = 1{,}23\\,P_d",
+        ripple: "f_{g\\text{ợ}n} = 2f = 100\\text{ Hz}",
+        special: {
+          label: rl ? "Nghịch lưu phụ thuộc (tải R-L)" : "Đặc tính tải R thuần trở",
+          tex: rl
+            ? "\\alpha > 90^\\circ,\\; E_d < 0 \\implies U_{d\\alpha} < 0\\text{ (trả năng lượng về lưới)}"
+            : "u_d(\\theta) \\ge 0\\text{ mọi góc } \\alpha\\; (\\text{không có điện áp âm})",
+        },
+      };
     },
     getStages: (alpha, loadType) => {
       const a = alpha;
@@ -365,8 +399,8 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   },
 
   pha1_bridge_semicontrolled: {
-    formulas: {
-      uOut: "U_{d\\alpha} = \\frac{\\sqrt{2}U_2}{\\pi}(1 + \\cos\\alpha) = \\frac{U_{d0}}{2}(1 + \\cos\\alpha)",
+    getFormulas: (_a, _l) => ({
+      uOut: "U_{d\\alpha} = \\frac{\\sqrt{2}U_2}{\\pi}(1 + \\cos\\alpha) = \\frac{U_{d0}}{2}(1 + \\cos\\alpha)\\; (\\text{cho cả R và R-L})",
       uRevMax: "U_{ng,max} = \\sqrt{2}\\,U_2 = 141{,}4\\text{ V}",
       iValveAvg: "I_{v,tb} = \\frac{I_d}{2}",
       iValveRms: "I_{v,rms} = \\frac{I_d}{\\sqrt{2}}\\sqrt{1 - \\frac{\\alpha}{\\pi}}",
@@ -374,9 +408,9 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
       ripple: "f_{g\\text{ợ}n} = 2f = 100\\text{ Hz}",
       special: {
         label: "Freewheeling tự nhiên",
-        tex: "u_d \\ge 0\\text{ mọi góc } \\alpha\\text{ (không có vùng điện áp âm)}",
+        tex: "u_d \\ge 0\\text{ mọi góc } \\alpha\\text{ (không có vùng điện áp âm dù tải R-L)}",
       },
-    },
+    }),
     getStages: (alpha, loadType) => {
       const a = alpha;
       const rl = loadType === "RL";
@@ -430,7 +464,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   /* CHƯƠNG 2: CHỈNH LƯU 3 PHA                                                */
   /* ======================================================================== */
   pha3_tap_diode: {
-    formulas: {
+    getFormulas: (_a, _l) => ({
       uOut: "U_d = \\frac{3\\sqrt{6}}{2\\pi} U_{ph} \\approx 1{,}17\\,U_{ph} = 117{,}0\\text{ V}",
       uRevMax: "U_{ng,max} = \\sqrt{6}\\,U_{ph} = \\sqrt{2}\\,U_d = 244{,}9\\text{ V}",
       iValveAvg: "I_{v,tb} = \\frac{I_d}{3}",
@@ -441,7 +475,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
         label: "Quy tắc chuyển mạch M3",
         tex: "\\text{Giao điểm tự nhiên: } 30^\\circ, 150^\\circ, 270^\\circ\\; (\\text{mỗi van dẫn } 120^\\circ)",
       },
-    },
+    }),
     getStages: (_a, _l) => [
       {
         id: "tap3p_d1",
@@ -486,17 +520,29 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   },
 
   pha3_tap_thyristor: {
-    formulas: {
-      uOut: "U_{d\\alpha} = \\frac{3\\sqrt{6}}{2\\pi} U_{ph}\\cos\\alpha = U_{d0}\\cos\\alpha",
-      uRevMax: "U_{ng,max} = \\sqrt{6}\\,U_{ph} = 244{,}9\\text{ V}",
-      iValveAvg: "I_{v,tb} = \\frac{I_d}{3}",
-      iValveRms: "I_{v,rms} = \\frac{I_d}{\\sqrt{3}}",
-      sBa: "S_{ba} = 1{,}35\\,P_d",
-      ripple: "f_{g\\text{ợ}n} = 3f = 150\\text{ Hz}",
-      special: {
-        label: "Góc giới hạn tải R",
-        tex: "\\alpha > 30^\\circ\\text{ (tải R) } \\implies U_{d\\alpha} = \\frac{3\\sqrt{2}U_{ph}}{2\\pi}\\bigl[1 + \\cos(\\alpha+30^\\circ)\\bigr]",
-      },
+    getFormulas: (alpha, loadType) => {
+      const a = alpha;
+      const rl = loadType === "RL";
+      let uOutFormula = "";
+      if (rl) {
+        uOutFormula = "U_{d\\alpha} = \\frac{3\\sqrt{6}}{2\\pi} U_{ph}\\cos\\alpha = U_{d0}\\cos\\alpha\\; (\\text{tải R-L, liên tục})";
+      } else if (a <= 30) {
+        uOutFormula = "U_{d\\alpha} = \\frac{3\\sqrt{6}}{2\\pi} U_{ph}\\cos\\alpha = U_{d0}\\cos\\alpha\\; (\\alpha \\le 30^\\circ,\\; \\text{liên tục})";
+      } else {
+        uOutFormula = "U_{d\\alpha} = \\frac{3\\sqrt{2}U_{ph}}{2\\pi}\\bigl[1 + \\cos(\\alpha+30^\\circ)\\bigr]\\; (\\alpha > 30^\\circ,\\; \\text{gián đoạn})";
+      }
+      return {
+        uOut: uOutFormula,
+        uRevMax: "U_{ng,max} = \\sqrt{6}\\,U_{ph} = 244{,}9\\text{ V}",
+        iValveAvg: "I_{v,tb} = \\frac{I_d}{3}",
+        iValveRms: "I_{v,rms} = \\frac{I_d}{\\sqrt{3}}",
+        sBa: "S_{ba} = 1{,}35\\,P_d",
+        ripple: "f_{g\\text{ợ}n} = 3f = 150\\text{ Hz}",
+        special: {
+          label: "Ranh giới liên tục / gián đoạn tải R",
+          tex: "\\alpha \\le 30^\\circ:\\; \\text{liên tục};\\quad \\alpha > 30^\\circ:\\; \\text{dòng gián đoạn từng đoạn } 30^\\circ \\to 0",
+        },
+      };
     },
     getStages: (alpha, loadType) => {
       const a = alpha;
@@ -547,7 +593,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   },
 
   pha3_bridge_diode: {
-    formulas: {
+    getFormulas: (_a, _l) => ({
       uOut: "U_d = \\frac{3\\sqrt{6}}{\\pi} U_{ph} \\approx 2{,}34\\,U_{ph} = 233{,}9\\text{ V}",
       uRevMax: "U_{ng,max} = \\sqrt{6}\\,U_{ph} = \\sqrt{2}\\,U_d = 244{,}9\\text{ V}",
       iValveAvg: "I_{v,tb} = \\frac{I_d}{3}",
@@ -558,7 +604,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
         label: "Đường bao điện áp",
         tex: "u_d(\\theta) = \\varphi_E(\\theta) - \\varphi_F(\\theta) = \\max(u_a, u_b, u_c) - \\min(u_a, u_b, u_c)",
       },
-    },
+    }),
     getStages: (_a, _l) => [
       {
         id: "b3p_d_1",
@@ -603,17 +649,29 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   },
 
   pha3_bridge_thyristor: {
-    formulas: {
-      uOut: "U_{d\\alpha} = \\frac{3\\sqrt{6}}{\\pi} U_{ph}\\cos\\alpha = U_{d0}\\cos\\alpha",
-      uRevMax: "U_{ng,max} = \\sqrt{6}\\,U_{ph} = 244{,}9\\text{ V}",
-      iValveAvg: "I_{v,tb} = \\frac{I_d}{3}",
-      iValveRms: "I_{v,rms} = \\frac{I_d}{\\sqrt{3}}",
-      sBa: "S_{ba} = 1{,}05\\,P_d",
-      ripple: "f_{g\\text{ợ}n} = 6f = 300\\text{ Hz}",
-      special: {
-        label: "Hệ thống xung kép",
-        tex: "\\text{Mỗi SCR nhận 2 xung: } X_{\\text{chính}} \\text{ và } X_{\\text{nhắc lại sau } 60^\\circ}",
-      },
+    getFormulas: (alpha, loadType) => {
+      const a = alpha;
+      const rl = loadType === "RL";
+      let uOutFormula = "";
+      if (rl) {
+        uOutFormula = "U_{d\\alpha} = \\frac{3\\sqrt{6}}{\\pi} U_{ph}\\cos\\alpha = U_{d0}\\cos\\alpha\\; (\\text{tải R-L, liên tục})";
+      } else if (a <= 60) {
+        uOutFormula = "U_{d\\alpha} = \\frac{3\\sqrt{6}}{\\pi} U_{ph}\\cos\\alpha = U_{d0}\\cos\\alpha\\; (\\alpha \\le 60^\\circ,\\; \\text{liên tục})";
+      } else {
+        uOutFormula = "U_{d\\alpha} = \\frac{3\\sqrt{6}}{\\pi} U_{ph}\\bigl[1 + \\cos(\\alpha+60^\\circ)\\bigr]\\; (\\alpha > 60^\\circ,\\; \\text{gián đoạn})";
+      }
+      return {
+        uOut: uOutFormula,
+        uRevMax: "U_{ng,max} = \\sqrt{6}\\,U_{ph} = 244{,}9\\text{ V}",
+        iValveAvg: "I_{v,tb} = \\frac{I_d}{3}",
+        iValveRms: "I_{v,rms} = \\frac{I_d}{\\sqrt{3}}",
+        sBa: "S_{ba} = 1{,}05\\,P_d",
+        ripple: "f_{g\\text{ợ}n} = 6f = 300\\text{ Hz}",
+        special: {
+          label: "Hệ thống xung kép",
+          tex: "\\text{Mỗi SCR nhận 2 xung: } X_{\\text{chính}} \\text{ và } X_{\\text{nhắc lại sau } 60^\\circ}",
+        },
+      };
     },
     getStages: (alpha, _l) => {
       const a = alpha;
@@ -662,7 +720,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   },
 
   pha3_bridge_misfire: {
-    formulas: {
+    getFormulas: (_a, _l) => ({
       uOut: "U_{d\\alpha} \\ll U_{d0}\\cos\\alpha\\; (\\text{suy giảm công suất nghiêm trọng})",
       uRevMax: "U_{ng,max} = \\sqrt{6}\\,U_{ph} = 244{,}9\\text{ V}",
       iValveAvg: "I_{v,tb} = \\text{không đối xứng giữa các van}",
@@ -673,7 +731,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
         label: "Lỗi hoán vị xung V5 ↔ V6",
         tex: "\\text{Hai van cùng rail dẫn } \\implies u_d = 0\\text{ từng khoảng } 60^\\circ",
       },
-    },
+    }),
     getStages: (alpha, _l) => [
       {
         id: "misfire_normal",
@@ -705,8 +763,8 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   },
 
   pha3_bridge_semicontrolled: {
-    formulas: {
-      uOut: "U_{d\\alpha} \\approx \\frac{3\\sqrt{6}}{2\\pi} U_{ph}(1 + \\cos\\alpha) = \\frac{U_{d0}}{2}(1 + \\cos\\alpha)",
+    getFormulas: (_a, _l) => ({
+      uOut: "U_{d\\alpha} \\approx \\frac{3\\sqrt{6}}{2\\pi} U_{ph}(1 + \\cos\\alpha) = \\frac{U_{d0}}{2}(1 + \\cos\\alpha)\\; (\\text{cả R và R-L})",
       uRevMax: "U_{ng,max} = \\sqrt{6}\\,U_{ph} = 244{,}9\\text{ V}",
       iValveAvg: "I_{v,tb} = \\frac{I_d}{3}",
       iValveRms: "I_{v,rms} = \\frac{I_d}{\\sqrt{3}}",
@@ -716,7 +774,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
         label: "Cấu trúc bán điều khiển 3 pha",
         tex: "\\text{Rail trên 3 SCR (kích } \\alpha\\text{)} + \\text{Rail dưới 3 Diode (chuyển mạch tự nhiên)}",
       },
-    },
+    }),
     getStages: (alpha, _l) => [
       {
         id: "b3p_semi_1",
@@ -751,17 +809,25 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   /* CHƯƠNG 3: ĐIỀU ÁP XOAY CHIỀU                                             */
   /* ======================================================================== */
   ac1p_regulator: {
-    formulas: {
-      uOut: "U_{t(\\text{rms})} = U_2 \\sqrt{\\frac{1}{\\pi}\\left(\\pi - \\alpha + \\frac{\\sin 2\\alpha}{2}\\right)}",
-      uRevMax: "U_{ng,max} = \\sqrt{2}\\,U_2 = 141{,}4\\text{ V} = U_{m2}",
-      iValveAvg: "I_{v,tb} = \\frac{\\sqrt{2}U_2}{\\pi R}(1 + \\cos\\alpha)",
-      iValveRms: "I_{v,rms} = \\frac{I_{\\text{rms}}}{\\sqrt{2}}",
-      sBa: "S = U_2 I_{\\text{rms}},\\quad P = I_{\\text{rms}}^2 R,\\quad \\cos\\varphi = \\sqrt{\\frac{1}{\\pi}\\left(\\pi - \\alpha + \\frac{\\sin 2\\alpha}{2}\\right)}",
-      ripple: "f_{\\text{ra}} = f_{\\text{lưới}} = 50\\text{ Hz}\\; (\\text{tần số không đổi, chỉ biến đổi biên độ hiệu dụng})",
-      special: {
-        label: "Góc dẫn tải R-L (phương trình xác định λ)",
-        tex: "\\sin(\\alpha + \\lambda - \\varphi) - \\sin(\\alpha - \\varphi)e^{-\\lambda/\\tan\\varphi} = 0,\\quad \\varphi = \\arctan\\frac{\\omega L}{R}",
-      },
+    getFormulas: (alpha, loadType) => {
+      const a = alpha;
+      const rl = loadType === "RL";
+      return {
+        uOut: rl
+          ? "U_{t(\\text{rms})} = U_2 \\sqrt{\\frac{1}{\\pi}\\left(\\lambda - \\frac{\\sin 2(\\alpha+\\lambda) - \\sin 2\\alpha}{2}\\right)}\\; (\\alpha > \\varphi)"
+          : "U_{t(\\text{rms})} = U_2 \\sqrt{\\frac{1}{\\pi}\\left(\\pi - \\alpha + \\frac{\\sin 2\\alpha}{2}\\right)}\\; (\\text{tải R})",
+        uRevMax: "U_{ng,max} = \\sqrt{2}\\,U_2 = 141{,}4\\text{ V} = U_{m2}",
+        iValveAvg: "I_{v,tb} = \\frac{\\sqrt{2}U_2}{\\pi R}(1 + \\cos\\alpha)",
+        iValveRms: "I_{v,rms} = \\frac{I_{\\text{rms}}}{\\sqrt{2}}",
+        sBa: "S = U_2 I_{\\text{rms}},\\quad P = I_{\\text{rms}}^2 R,\\quad \\cos\\varphi = \\frac{U_{t(\\text{rms})}}{U_2}",
+        ripple: "f_{\\text{ra}} = f_{\\text{lưới}} = 50\\text{ Hz}\\; (\\text{tần số không đổi, chỉ biến đổi biên độ hiệu dụng})",
+        special: {
+          label: rl ? "Phương trình xác định góc dẫn λ (tải R-L)" : "Đặc điểm điều áp AC tải R",
+          tex: rl
+            ? "\\sin(\\alpha + \\lambda - \\varphi) - \\sin(\\alpha - \\varphi)e^{-\\lambda/\\tan\\varphi} = 0,\\quad \\varphi = \\arctan\\frac{\\omega L}{R}"
+            : "\\alpha = 0^\\circ \\implies U_{t(\\text{rms})} = U_2;\\quad \\alpha \\to 180^\\circ \\implies U_{t(\\text{rms})} \\to 0",
+        },
+      };
     },
     getStages: (alpha, loadType) => {
       const a = alpha;
@@ -811,7 +877,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   },
 
   ac3p_regulator: {
-    formulas: {
+    getFormulas: (_a, _l) => ({
       uOut: "U_{t(\\text{rms})} = \\text{hàm theo } \\alpha \\in [0^\\circ, 150^\\circ]",
       uRevMax: "U_{ng,max} = \\sqrt{6}\\,U_{ph} = 244{,}9\\text{ V}",
       iValveAvg: "I_{v,tb} = \\frac{I_{\\text{rms}}}{\\sqrt{2}\\pi}(1 + \\cos\\alpha)",
@@ -822,7 +888,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
         label: "Chế độ dẫn tải sao",
         tex: "\\alpha < 60^\\circ:\\; 3\\text{ van} \\leftrightarrow 2\\text{ van};\\quad 60^\\circ \\le \\alpha \\le 90^\\circ:\\; 2\\text{ van};\\quad \\alpha > 90^\\circ:\\; 2\\text{ van gián đoạn}",
       },
-    },
+    }),
     getStages: (alpha, _l) => [
       {
         id: "ac3p_stage1",
@@ -857,7 +923,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   /* CHƯƠNG 4: DC-DC CONVERTER (BUCK / BOOST)                                 */
   /* ======================================================================== */
   dcdc_buck: {
-    formulas: {
+    getFormulas: (_a, _l) => ({
       uOut: "U_t = \\frac{t_x}{T}E = D\\,E\\; (U_t \\le E)",
       uRevMax: "U_{V,max} = E = 100\\text{ V},\\quad U_{D0,max} = E = 100\\text{ V}",
       iValveAvg: "I_{V,tb} = D\\,I_t = D\\frac{U_t}{R}",
@@ -868,7 +934,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
         label: "Độ đập mạch điện áp ra",
         tex: "\\Delta U_t = \\frac{\\Delta I_L}{8 C f_s} = \\frac{E\\,D(1-D)}{8 L C f_s^2}",
       },
-    },
+    }),
     getStages: (duty, _l) => {
       const D = duty / 100;
       const degOn = Math.round(D * 360);
@@ -904,7 +970,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   },
 
   dcdc_boost: {
-    formulas: {
+    getFormulas: (_a, _l) => ({
       uOut: "U_o = \\frac{E}{1 - D}\\; (U_o \\ge E)",
       uRevMax: "U_{V,max} = U_o,\\quad U_{D,max} = U_o",
       iValveAvg: "I_{V,tb} = D\\,I_L = \\frac{D}{1-D}I_o",
@@ -915,7 +981,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
         label: "Độ đập mạch điện áp ra",
         tex: "\\Delta U_o = \\frac{I_o D T}{C} = \\frac{U_o D}{R C f_s}",
       },
-    },
+    }),
     getStages: (duty, _l) => {
       const D = duty / 100;
       const degOn = Math.round(D * 360);
@@ -954,7 +1020,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   /* CHƯƠNG 5: NGHỊCH LƯU NGUỒN ÁP                                            */
   /* ======================================================================== */
   inv1p_full: {
-    formulas: {
+    getFormulas: (_a, _l) => ({
       uOut: "U_{z(\\text{rms})} = E = 100\\text{ V},\\quad U_{z1} = \\frac{4E}{\\pi\\sqrt{2}} \\approx 0{,}9\\,E = 90\\text{ V}",
       uRevMax: "U_{Tr,max} = E = 100\\text{ V},\\quad U_{D,max} = E = 100\\text{ V}",
       iValveAvg: "I_{Tr,tb} = \\frac{I_z}{2}",
@@ -965,7 +1031,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
         label: "Hồi truyền công suất phản kháng",
         tex: "i_z < 0 \\text{ khi } u_z > 0 \\implies D_1, D_2 \\text{ dẫn trả năng lượng về nguồn DC}",
       },
-    },
+    }),
     getStages: (_a, loadType) => {
       const rl = loadType === "RL";
       return [
@@ -1026,7 +1092,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   },
 
   inv3p_180: {
-    formulas: {
+    getFormulas: (_a, _l) => ({
       uOut: "U_{AB1} = \\frac{2\\sqrt{3}E}{\\pi\\sqrt{2}} \\approx 0{,}78\\,E,\\quad U_{A1} = \\frac{2E}{\\pi\\sqrt{2}} \\approx 0{,}45\\,E",
       uRevMax: "U_{Tr,max} = E = 100\\text{ V}",
       iValveAvg: "I_{Tr,tb} = \\frac{I_A}{3}",
@@ -1037,7 +1103,7 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
         label: "Quy luật 6 bước 180°",
         tex: "\\text{Mỗi van dẫn } 180^\\circ,\\text{ lệch pha kích } 60^\\circ \\implies u_{AB} \\in \\{+E, 0, -E\\},\\; u_{AN} \\in \\{\\pm \\tfrac{2}{3}E, \\pm \\tfrac{1}{3}E\\}",
       },
-    },
+    }),
     getStages: (_a, _l) => [
       {
         id: "inv3p_step1",
