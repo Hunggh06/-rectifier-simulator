@@ -990,18 +990,6 @@ const CATALOG = [
     descriptionVN:
       "Rail trên SCR + rail dưới diode (kèm diode tự do): tiết kiệm van điều khiển, ud không âm, hệ số hài dòng lưới tốt hơn cầu đối xứng cùng α.",
   },
-  {
-    catalogId: "pha3_tap_thyristor_wide",
-    circuitName: "CL 3 pha tia Thyristor — vùng α > 30° (tải R)",
-    family: "3P",
-    topology: "tap3p-thyristor",
-    controlled: true,
-    valveLabels: ["V1", "V2", "V3"],
-    formulaTex: "U_{d\\alpha}=\\frac{3\\sqrt{2}U_{ph}}{2\\pi}\\bigl[1+\\cos(\\alpha+30^\\circ)\\bigr]",
-    ud0FactorVsU2: 1.17,
-    descriptionVN:
-      "Khảo sát chuyên sâu chế độ α > 30° với tải R: mỗi van dẫn dưới 120°, ud gián đoạn — bảng tra công thức vùng này khác vùng liên tục.",
-  },
 ];
 
 /* ================================================================== */
@@ -1030,7 +1018,6 @@ function planEntries() {
   push("pha3_bridge_thyristor", "RL", [0, 30, 60, 90]);
   push("pha3_bridge_misfire", "RL", [60]);
   push("pha3_bridge_semicontrolled", "RL", [0, 30, 60, 90]);
-  push("pha3_tap_thyristor_wide", "R", [90, 120]);
   return plan;
 }
 
@@ -1060,7 +1047,6 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
       break;
     case "pha3_tap_diode":
     case "pha3_tap_thyristor":
-    case "pha3_tap_thyristor_wide":
       isThreePhase = true;
       built = buildTap3P({
         alphaDeg,
@@ -1153,7 +1139,7 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
   // Dòng qua van 1: tải R → bám ud/R (nửa sin / đoạn dây điện áp);
   // tải RL (L lớn) → định mức phẳng Id. Mọi builder đều đi qua pass này.
   const IdFlat = IdSimAvg > 0 ? IdSimAvg : Math.max(UdTh, 0) / R_LOAD;
-  const iVan1Shaped = iVan1Sim.map((v, i) =>
+  const iVan1Shaped = iVan1.map((v, i) =>
     Math.abs(v) > 1e-6 ? (loadType === "RL" ? IdFlat : udSim[i] / R_LOAD) : 0
   );
 

@@ -2,7 +2,7 @@
 
 Bộ mô phỏng & đối chiếu dữ liệu cho **Chương 2: Chỉnh lưu** (Điện tử công suất) gồm hai giai đoạn:
 
-1. **MATLAB/Simulink pipeline** (`matlab/export_simulink_data.m`) — tự động build & chạy mô phỏng **12 mạch chỉnh lưu** (1P/3P, tia/cầu, Diode/Thyristor/bán điều khiển/kích sai), quét α ∈ {0°,30°,60°,90°,120°}, trích dạng sóng xác lập `u_d, i_d, u_van, i_van, gate`, đối chiếu sai số với công thức giải tích và xuất `src/data/simulink_verified_dataset.simulink.json`.
+1. **MATLAB/Simulink pipeline** (`matlab/export_simulink_data.m`) — tự động build & chạy mô phỏng **11 mạch chỉnh lưu** (1P/3P, tia/cầu, Diode/Thyristor/bán điều khiển/kích sai), quét α ∈ {0°,30°,60°,90°,120°}, trích dạng sóng xác lập `u_d, i_d, u_van, i_van, gate`, đối chiếu sai số với công thức giải tích và xuất `src/data/simulink_verified_dataset.simulink.json`.
 2. **Web simulator (Next.js 14)** — nạp dataset đã kiểm chứng: sơ đồ mạch SVG động (van đổi màu theo trạng thái dẫn, hạt dòng chạy), máy hiện sóng Canvas 6 kênh chồng **Lý thuyết (nét đứt) ↔ Simulink (nét liền)**, vạch quét θ đồng bộ, **tự dừng giải thích tại các mốc chuyển mạch**, bảng đối chiếu sai số.
 
 ![Dashboard 1 pha tia Diode](docs/screenshots/dash-1pha-tia-diode.png)
@@ -34,7 +34,7 @@ Copy kết quả vào `public/data/simulink_verified_dataset.simulink.json` — 
 ## Cấu trúc
 
 ```
-matlab/export_simulink_data.m        # Pipeline Simulink → JSON (12 mạch × α × tải)
+matlab/export_simulink_data.m        # Pipeline Simulink → JSON (11 mạch × α × tải)
 scripts/generate-dataset.mjs         # Mock giải tích (chạy không cần MATLAB)
 src/data/simulink_verified_dataset.json
 src/types/simulator.ts               # Schema dùng chung TS ↔ JSON
