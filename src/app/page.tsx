@@ -19,6 +19,7 @@ import {
   Pause,
   Play,
   Radio,
+  SkipForward,
   Zap,
 } from "lucide-react";
 
@@ -72,6 +73,7 @@ export default function Home() {
   const jumpToMilestone = useSimulatorStore((s) => s.jumpToMilestone);
   const dismissMilestonePause = useSimulatorStore((s) => s.dismissMilestonePause);
   const togglePauseAtMilestone = useSimulatorStore((s) => s.togglePauseAtMilestone);
+  const stepNextMilestone = useSimulatorStore((s) => s.stepNextMilestone);
 
   const activeCircuit = useActiveCircuit();
   const activeEntry = useActiveCatalogEntry();
@@ -136,6 +138,7 @@ export default function Home() {
   pauseAtMilestonesRef.current = pauseAtMilestones;
 
   useEffect(() => {
+    if (pauseAtMilestonesRef.current) return;
     if (!isPlaying || !activeCircuit) return;
     let raf = 0;
     let last = performance.now();
@@ -186,10 +189,14 @@ export default function Home() {
       if ((e.target as HTMLElement)?.tagName === "INPUT") return;
       if (e.key === "ArrowRight") setTheta(thetaRef.current + 5);
       else if (e.key === "ArrowLeft") setTheta(thetaRef.current - 5);
-      else if (e.code === "Space") {
+      if (e.code === "Space") {
         e.preventDefault();
-        dismissMilestonePause();
-        togglePlay();
+        if (pauseAtMilestonesRef.current) {
+          stepNextMilestone();
+        } else {
+          dismissMilestonePause();
+          togglePlay();
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -353,20 +360,35 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (pauseAtMilestones) {
+                      stepNextMilestone();
+                      return;
+                    }
                     dismissMilestonePause();
                     togglePlay();
                   }}
                   disabled={!activeCircuit}
                   className="inline-flex items-center gap-1.5 rounded-md border border-sig-on/40 bg-sig-on/10 px-3 py-1.5 font-mono text-xs text-sig-on transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
                 >
-                  {isPlaying ? <Pause size={13} aria-hidden /> : <Play size={13} aria-hidden />}
-                  {isPlaying ? "Dừng" : "Quét"}
+                  {pauseAtMilestones ? (
+                    <>
+                      <SkipForward size={13} aria-hidden /> Bước ▸
+                    </>
+                  ) : isPlaying ? (
+                    <>
+                      <Pause size={13} aria-hidden /> Dừng
+                    </>
+                  ) : (
+                    <>
+                      <Play size={13} aria-hidden /> Quét
+                    </>
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={togglePauseAtMilestone}
                   aria-pressed={pauseAtMilestones}
-                  title="Khi bật: quét sẽ tạm dừng giải thích tại từng mốc chuyển mạch"
+                  title="Bật: mỗi nhấn Quét đi đúng 1 mốc chuyển mạch theo thứ tự; tắt: quét liên tục"
                   className={`rounded-md border px-2 py-1.5 font-mono text-[11px] transition-colors ${
                     pauseAtMilestones
                       ? "border-sig-gate/50 bg-sig-gate/10 text-sig-gate"

@@ -63,6 +63,7 @@ interface SimulatorState {
   jumpToMilestone: (theta: number) => void;
   dismissMilestonePause: () => void;
   togglePauseAtMilestone: () => void;
+  stepNextMilestone: () => void;
 }
 
 /** Tìm bản ghi mô phỏng khớp lựa chọn hiện tại */
@@ -178,7 +179,8 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => ({
   setTheta: (thetaDeg) => {
     const wrapped = ((thetaDeg % 720) + 720) % 720;
     const { pausedAtMilestoneTheta } = get();
-    set({ thetaDeg: wrapped, pausedAtMilestoneTheta: pausedAtMilestoneTheta });
+    const still = pausedAtMilestoneTheta !== null && Math.abs(wrapped - pausedAtMilestoneTheta) < 0.5;
+    set({ thetaDeg: wrapped, pausedAtMilestoneTheta: still ? pausedAtMilestoneTheta : null });
   },
 
   nudgeTheta: (deltaDeg) => {
@@ -201,6 +203,23 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => ({
 
   togglePauseAtMilestone: () =>
     set((s) => ({ pauseAtMilestones: !s.pauseAtMilestones })),
+
+  stepNextMilestone: () => {
+    const { circuits, selectedCatalogId, selectedAlphaDeg, selectedLoadType, thetaDeg } = get();
+    const c = circuits.find(
+      (x) =>
+        x.catalogId === selectedCatalogId &&
+        x.alphaDeg === selectedAlphaDeg &&
+        x.loadType === selectedLoadType
+    );
+    if (!c || c.milestones.length === 0) return;
+    const a = ((thetaDeg % 720) + 720) % 720;
+    const ms = c.milestones
+      .map((m) => ((m.theta % 720) + 720) % 720)
+      .sort((x, y) => x - y);
+    const nxt = ms.find((t) => t > a + 0.5) ?? ms[0];
+    set({ thetaDeg: nxt, isPlaying: false, pausedAtMilestoneTheta: nxt });
+  },
 }));
 
 /** Hook tiện lợi: lấy bản ghi mô phỏng đang hoạt động */
