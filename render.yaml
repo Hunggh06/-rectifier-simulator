@@ -1,0 +1,15 @@
+# Render Blueprint — triển khai 1 click
+# Trong Render: New + → Blueprint → chọn repo này → Apply
+services:
+  - type: web
+    name: rectifier-simulator
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
