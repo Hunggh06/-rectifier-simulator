@@ -20,6 +20,7 @@ export interface CatalogEntry {
   /** Khóa topology để CircuitSchematic biết vẽ sơ đồ nào */
   topology:
     | "half1p-diode"
+    | "half1p-thyristor"
     | "tap1p-diode"
     | "tap1p-thyristor"
     | "bridge1p-diode"

@@ -298,6 +298,10 @@ export function analyticConduction(
     const end = rl ? 245 : 180;
     return ph < end ? ["D1"] : [];
   }
+  if (catalogId === "pha1_half_thyristor") {
+    const end = rl ? Math.min(180 + a + 65, 360) : 180;
+    return ph >= a && ph < end ? ["V1"] : [];
+  }
 
   /* ---------------- 1 pha — tia hai nửa ---------------- */
   if (catalogId.startsWith("pha1_tap")) {
@@ -494,6 +498,7 @@ export function computeValveStatesAt(
 function valveLabelsOf(circuit: CircuitSimulationData): string[] {
   const id = circuit.catalogId;
   if (id === "pha1_half_diode") return ["D1"];
+  if (id === "pha1_half_thyristor") return ["V1"];
   if (id === "ac1p_regulator") return ["T1", "T2"];
   if (id === "ac3p_regulator") return ["V1", "V3", "V5", "V4", "V6", "V2"];
   if (id === "dcdc_buck") return ["V", "D0"];

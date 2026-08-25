@@ -36,6 +36,7 @@ const mod360 = (x: number) => ((x % 360) + 360) % 360;
 
 function valveLabelSet(catalogId: string): string[] {
   if (catalogId === "pha1_half_diode") return ["D1"];
+  if (catalogId === "pha1_half_thyristor") return ["V1"];
   if (catalogId === "ac1p_regulator") return ["T1", "T2"];
   if (catalogId === "ac3p_regulator") return ["V1", "V3", "V5", "V4", "V6", "V2"];
   if (catalogId === "dcdc_buck") return ["V", "D0"];
@@ -140,6 +141,8 @@ export function buildAnalyticExtras(
     let iline = 0;
     if (catalogId === "pha1_half_diode") {
       iline = actSet.has("D1") ? 1 : 0;
+    } else if (catalogId === "pha1_half_thyristor") {
+      iline = actSet.has("V1") ? 1 : 0;
     } else if (catalogId === "ac1p_regulator") {
       iline = actSet.has("T1") ? 1 : actSet.has("T2") ? -1 : 0;
     } else if (catalogId === "dcdc_buck" || catalogId === "dcdc_boost") {
@@ -180,7 +183,9 @@ export function buildAnalyticExtras(
       );
     };
 
-    if (catalogId === "dcdc_buck" || catalogId === "dcdc_boost") {
+    if (catalogId === "pha1_half_thyristor") {
+      pushGate("V1", alphaDeg, 10);
+    } else if (catalogId === "dcdc_buck" || catalogId === "dcdc_boost") {
       pushGate("V", 0, (alphaDeg / 100) * 360);
     } else if (catalogId === "ac1p_regulator") {
       pushGate("T1", alphaDeg, 10);

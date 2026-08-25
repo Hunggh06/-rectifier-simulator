@@ -86,6 +86,71 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
       ];
     },
   },
+  pha1_half_thyristor: {
+    formulas: {
+      uOut: "U_{d\\alpha} = \\frac{\\sqrt{2}U_2}{2\\pi}(1 + \\cos\\alpha) = \\frac{U_{d0}}{2}(1 + \\cos\\alpha)",
+      uRevMax: "U_{ng,max} = \\sqrt{2}\\,U_2 = 141{,}4\\text{ V},\\quad U_{th,max} = \\sqrt{2}\\,U_2 = 141{,}4\\text{ V}",
+      iValveAvg: "I_{v,tb} = I_d = \\frac{U_{d\\alpha}}{R}",
+      iValveRms: "I_{v,rms} = \\frac{\\sqrt{2}U_2}{2R}\\sqrt{\\frac{1}{\\pi}\\left(\\pi - \\alpha + \\frac{\\sin 2\\alpha}{2}\\right)}",
+      sBa: "S_{ba} \\approx 3{,}09\\,P_d",
+      ripple: "f_{g\\text{ợ}n} = f = 50\\text{ Hz}",
+      special: {
+        label: "Phạm vi góc điều khiển",
+        tex: "0 \\le \\alpha \\le \\pi\\; (\\text{điều chỉnh } U_d \\text{ từ } 0{,}45\\,U_2 \\to 0)",
+      },
+    },
+    getStages: (alpha, loadType) => {
+      const a = alpha;
+      const rl = loadType === "RL";
+      const endDeg = rl ? Math.min(180 + a + 65, 360) : 180;
+      return [
+        {
+          id: "half1p_th_wait",
+          startDeg: 0,
+          endDeg: a,
+          intervalTex: `\\theta \\in [0^\\circ, ${a}^\\circ)`,
+          valves: "\\text{Khóa ngắt (chờ xung)}",
+          title: "Chờ kích V1 — Chặn điện áp thuận u2",
+          uOutTex: "u_d(\\theta) = 0\\text{ V}",
+          uValveTex: "u_{V1}(\\theta) = u_2(\\theta) = \\sqrt{2}U_2\\sin\\theta > 0",
+          iLoadTex: "i_d(\\theta) = 0\\text{ A}",
+          physicsExplanation:
+            "u2 đã dương nhưng chưa phát xung điều khiển Ig nên V1 khóa ngắt ở chế độ chặn thuận. Toàn bộ điện áp u2 đặt lên V1, tải chưa có dòng điện và điện áp.",
+        },
+        {
+          id: "half1p_th_on",
+          startDeg: a,
+          endDeg: endDeg,
+          intervalTex: `\\theta \\in [${a}^\\circ, ${endDeg}^\\circ)`,
+          valves: "V_1",
+          title: `Kích mở V1 tại α = ${a}° — Dẫn dòng ra tải`,
+          uOutTex: "u_d(\\theta) = u_2(\\theta) = \\sqrt{2}U_2\\sin\\theta",
+          uValveTex: "u_{V1} = 0\\text{ V}",
+          iLoadTex:
+            loadType === "RL"
+              ? "i_d(\\theta) = \\frac{U_m}{Z}\\left[\\sin(\\theta-\\varphi) - \\sin(\\alpha-\\varphi)e^{-(\\theta-\\alpha)/\\tan\\varphi}\\right]"
+              : "i_d(\\theta) = \\frac{\\sqrt{2}U_2}{R}\\sin\\theta",
+          physicsExplanation:
+            rl
+              ? "Xung kích mở V1 tại góc α: u2 nối ra tải. Khi u2 đổi dấu âm sau 180°, cuộn cảm L xả năng lượng ép V1 tiếp tục dẫn kéo ud âm tới khi dòng tắt hẳn."
+              : "Xung kích mở V1 tại góc α: u2 nối trực tiếp ra tải, u_d bám theo hình sin từ α đến 180°. Tại 180°, u2 về 0 làm dòng tải về 0 và V1 tự khóa.",
+        },
+        {
+          id: "half1p_th_neg",
+          startDeg: endDeg,
+          endDeg: 360,
+          intervalTex: `\\theta \\in [${endDeg}^\\circ, 360^\\circ)`,
+          valves: "\\text{Khóa ngắt}",
+          title: "Nửa chu kỳ âm — V1 chịu điện áp ngược",
+          uOutTex: "u_d(\\theta) = 0\\text{ V}",
+          uValveTex: "u_{V1}(\\theta) = u_2(\\theta) < 0",
+          iLoadTex: "i_d(\\theta) = 0\\text{ A}",
+          physicsExplanation:
+            "V1 phân cực ngược và khóa hoàn toàn, điện áp ngược cực đại Ung,max = √2 U2 tại 270°. Tải không có điện áp và dòng điện.",
+        },
+      ];
+    },
+  },
   pha1_tap_diode: {
     formulas: {
       uOut: "U_d = \\frac{2\\sqrt{2}}{\\pi} U_2 \\approx 0{,}9\\,U_2 = 89{,}9\\text{ V}",

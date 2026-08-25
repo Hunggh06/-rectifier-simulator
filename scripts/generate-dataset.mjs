@@ -147,8 +147,9 @@ function collectSwitchAngles(events) {
 /* Các họ xây dựng dạng sóng lý thuyết                                 */
 /* ================================================================== */
 
-/** Chỉnh lưu 1 pha 1 nửa chu kỳ — Diode (1 van) */
-function buildHalf1P({ loadType }) {
+/** Chỉnh lưu 1 pha 1 nửa chu kỳ — Diode (1 van) hoặc Thyristor (1 van) */
+function buildHalf1P({ alphaDeg = 0, controlled = false, loadType }) {
+  const a = controlled ? alphaDeg : 0;
   const n = thetaGrid.length;
   const ud = new Array(n);
   const uVan1 = new Array(n);
@@ -162,58 +163,96 @@ function buildHalf1P({ loadType }) {
   let lambda = 180;
   if (rl) {
     const Z = Math.hypot(R_LOAD, 2 * Math.PI * F_GRID * L_LOAD);
-    for (let d = 180; d <= 360; d += 0.5) {
+    for (let d = a + 0.5; d <= 360; d += 0.5) {
       const thRad = (d * Math.PI) / 180;
-      const cur = (UM2 / Z) * (Math.sin(thRad - phi) + Math.sin(phi) * Math.exp(-d / wTau));
+      const alphaRad = (a * Math.PI) / 180;
+      const cur =
+        (UM2 / Z) *
+        (Math.sin(thRad - phi) - Math.sin(alphaRad - phi) * Math.exp(-(d - a) / wTau));
       if (cur <= 0) {
         lambda = d;
         break;
       }
     }
+  } else {
+    lambda = 180;
   }
+
+  const vLabel = controlled ? "V1" : "D1";
 
   for (let i = 0; i < n; i++) {
     const ph = ((thetaGrid[i] % 360) + 360) % 360;
     const u2 = UM2 * sinD(ph);
-    const cond = ph < lambda;
+    const cond = ph >= a && ph < lambda;
     ud[i] = cond ? u2 : 0;
     uVan1[i] = cond ? 0 : u2;
     iVan1[i] = cond ? (rl ? Math.max(ud[i] / R_LOAD, 0) : Math.max(u2 / R_LOAD, 0)) : 0;
+    if (controlled) {
+      gate[i] = ph >= a && ph < a + 10 ? 1 : 0;
+    }
   }
 
-  events.push(
-    {
-      theta: 0,
-      title: "D1 bắt đầu dẫn (nửa chu kỳ dương)",
-      description:
-        "u2 chuyển sang phân cực thuận, D1 mở thông tự nhiên nối trực tiếp u2 ra tải.",
-      activeValves: ["D1"],
-      circuitState: "D1 dẫn · ud = u2",
-    },
-    {
-      theta: 90,
-      title: "Cực đại điện áp chỉnh lưu",
-      description: "ud đạt đỉnh Um2 = √2·U2 = 141,4 V. Dòng tải đạt cực đại cùng pha.",
-      activeValves: ["D1"],
-      circuitState: "Đỉnh sóng · ud = √2 U2",
-    },
-    {
-      theta: 180,
-      title: rl ? `u2 đổi dấu — L duy trì dòng D1 (đến ${Math.round(lambda)}°)` : "u2 về 0 — D1 khóa tự nhiên",
-      description: rl
-        ? "u2 đổi dấu âm nhưng năng lượng từ trường trong cuộn cảm L ép D1 tiếp tục dẫn, kéo ud âm đến khi dòng triệt tiêu."
-        : "u2 đổi dấu âm, D1 phân cực ngược và tự ngắt. ud = 0 suốt nửa chu kỳ âm.",
-      activeValves: rl ? ["D1"] : [],
-      circuitState: rl ? "D1 giữ dòng · ud < 0" : "D1 khóa · ud = 0",
-    },
-    {
-      theta: 270,
-      title: "Điện áp ngược cực đại trên D1",
-      description: "D1 chịu toàn bộ điện áp ngược của nguồn xoay chiều, Ung,max = -√2·U2 = -141,4 V.",
-      activeValves: [],
-      circuitState: "D1 khóa · u_D1 = -√2 U2",
-    }
-  );
+  if (controlled) {
+    events.push(
+      {
+        theta: a,
+        title: `Kích mở V1 tại α = ${a}°`,
+        description: `Xung điều khiển đưa vào cực Gate của V1: V1 mở thông nối u2 ra tải, u_d bám theo hình sin từ góc ${a}°.`,
+        activeValves: [vLabel],
+        circuitState: `${vLabel} dẫn · ud = u2`,
+      },
+      {
+        theta: 180,
+        title: rl ? `u2 đổi dấu — L duy trì dòng V1 (đến ${Math.round(lambda)}°)` : "u2 về 0 — V1 khóa tự nhiên",
+        description: rl
+          ? "u2 đổi dấu âm nhưng năng lượng từ trường trong cuộn cảm L tiếp tục duy trì dòng qua V1, kéo ud âm đến khi dòng triệt tiêu."
+          : "u2 đổi dấu âm, dòng tải về 0 nên V1 tự khóa. ud = 0 suốt nửa chu kỳ âm.",
+        activeValves: rl ? [vLabel] : [],
+        circuitState: rl ? `${vLabel} giữ dòng · ud < 0` : `${vLabel} khóa · ud = 0`,
+      },
+      {
+        theta: 270,
+        title: "Điện áp ngược cực đại trên V1",
+        description: "V1 chịu điện áp ngược cực đại Ung,max = -√2·U2 = -141,4 V.",
+        activeValves: [],
+        circuitState: "V1 khóa · u_V1 = -√2 U2",
+      }
+    );
+  } else {
+    events.push(
+      {
+        theta: 0,
+        title: "D1 bắt đầu dẫn (nửa chu kỳ dương)",
+        description:
+          "u2 chuyển sang phân cực thuận, D1 mở thông tự nhiên nối trực tiếp u2 ra tải.",
+        activeValves: ["D1"],
+        circuitState: "D1 dẫn · ud = u2",
+      },
+      {
+        theta: 90,
+        title: "Cực đại điện áp chỉnh lưu",
+        description: "ud đạt đỉnh Um2 = √2·U2 = 141,4 V. Dòng tải đạt cực đại cùng pha.",
+        activeValves: ["D1"],
+        circuitState: "Đỉnh sóng · ud = √2 U2",
+      },
+      {
+        theta: 180,
+        title: rl ? `u2 đổi dấu — L duy trì dòng D1 (đến ${Math.round(lambda)}°)` : "u2 về 0 — D1 khóa tự nhiên",
+        description: rl
+          ? "u2 đổi dấu âm nhưng năng lượng từ trường trong cuộn cảm L ép D1 tiếp tục dẫn, kéo ud âm đến khi dòng triệt tiêu."
+          : "u2 đổi dấu âm, D1 phân cực ngược và tự ngắt. ud = 0 suốt nửa chu kỳ âm.",
+        activeValves: rl ? ["D1"] : [],
+        circuitState: rl ? "D1 giữ dòng · ud < 0" : "D1 khóa · ud = 0",
+      },
+      {
+        theta: 270,
+        title: "Điện áp ngược cực đại trên D1",
+        description: "D1 chịu toàn bộ điện áp ngược của nguồn xoay chiều, Ung,max = -√2·U2 = -141,4 V.",
+        activeValves: [],
+        circuitState: "D1 khóa · u_D1 = -√2 U2",
+      }
+    );
+  }
 
   return {
     ud,
@@ -221,7 +260,7 @@ function buildHalf1P({ loadType }) {
     iVan1,
     gate,
     events: events.sort((x, y) => x.theta - y.theta),
-    switchingAngles: [0, Math.round(lambda)],
+    switchingAngles: controlled ? [a, Math.round(lambda)] : [0, Math.round(lambda)],
     ungMaxTheory: UM2,
   };
 }
@@ -955,6 +994,18 @@ const CATALOG = [
       "Chỉnh lưu nửa chu kỳ 1 pha dùng 1 diode: sơ đồ cơ bản nhất, chỉ dẫn điện trong nửa chu kỳ dương. Điện áp trung bình Ud = 0,45·U2, hệ số đập mạch lớn (157%), dung lượng biến áp S_ba ≈ 3,09·Pd.",
   },
   {
+    catalogId: "pha1_half_thyristor",
+    circuitName: "CL 1 pha nửa chu kỳ — Thyristor",
+    family: "1P",
+    topology: "half1p-thyristor",
+    controlled: true,
+    valveLabels: ["V1"],
+    formulaTex: "U_{d\\alpha} = \\frac{\\sqrt{2}U_2}{2\\pi}(1+\\cos\\alpha) = \\frac{U_{d0}}{2}(1+\\cos\\alpha)",
+    ud0FactorVsU2: 0.45,
+    descriptionVN:
+      "Chỉnh lưu nửa chu kỳ 1 pha có điều khiển: 1 SCR điều chỉnh góc mở α ∈ [0, 180°]. Với tải RL, van dẫn kéo dài quá 180° đến góc tắt λ; với tải R dòng ngắt tại 180°.",
+  },
+  {
     catalogId: "pha1_tap_diode",
     circuitName: "CL 1 pha tia 2 nửa — Diode",
     family: "1P",
@@ -1617,6 +1668,8 @@ function planEntries() {
   // ---- 1 pha ----
   push("pha1_half_diode", "R", [0]);
   push("pha1_half_diode", "RL", [0]);
+  push("pha1_half_thyristor", "R", [0, 30, 60, 90, 120]);
+  push("pha1_half_thyristor", "RL", [0, 30, 60, 90, 120]);
   push("pha1_tap_diode", "R", [0]);
   push("pha1_tap_diode", "RL", [0]);
   push("pha1_tap_thyristor", "R", [0, 30, 60, 90, 120]);
@@ -1665,7 +1718,10 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
 
   switch (catalogId) {
     case "pha1_half_diode":
-      built = buildHalf1P({ loadType });
+      built = buildHalf1P({ controlled: false, loadType });
+      break;
+    case "pha1_half_thyristor":
+      built = buildHalf1P({ alphaDeg, controlled: true, loadType });
       break;
     case "pha1_tap_diode":
       built = buildTap1P({ alphaDeg, controlled: false, loadType });
@@ -1764,6 +1820,8 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
   const SbaFactors = {
     pha1_half_diode_R: 3.09,
     pha1_half_diode_RL: 3.09,
+    pha1_half_thyristor_R: 3.09,
+    pha1_half_thyristor_RL: 3.09,
     pha1_tap_diode_R: 1.48,
     pha1_tap_diode_RL: 1.34,
     pha1_tap_thyristor_R: 1.48,

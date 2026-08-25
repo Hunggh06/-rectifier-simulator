@@ -234,13 +234,14 @@ function Transformer1P({ centerTap }: { centerTap: boolean }) {
 /* Builder — 1 pha nửa chu kỳ (Diode 1 van)                             */
 /* ================================================================== */
 
-function buildHalf1P(loadType: LoadType): SchematicModel {
+function buildHalf1P(kind: ValveKind, loadType: LoadType): SchematicModel {
+  const L = kind === "diode" ? "D" : "V";
   const coilEnd = loadType === "RL" ? 249 : 153;
   return {
     valves: [
       {
-        label: "D1",
-        kind: "diode",
+        label: `${L}1`,
+        kind,
         dir: "down",
         rot: -90,
         x: 360,
@@ -265,7 +266,9 @@ function buildHalf1P(loadType: LoadType): SchematicModel {
         <line x1={420} y1={120} x2={480} y2={120} stroke={LABEL_INK} strokeWidth={1} markerEnd="url(#cs-arrow)" />
         <Txt x={450} y={114} anchor="middle" italic>id</Txt>
         <Txt x={380} y={345} size={10} color="var(--ink-3)" anchor="middle">
-          Chỉnh lưu nửa chu kỳ: 1 diode D1 · dẫn dòng nửa chu kỳ dương u2 &gt; 0
+          {kind === "diode"
+            ? "Chỉnh lưu nửa chu kỳ: 1 diode D1 · dẫn dòng nửa chu kỳ dương u2 > 0"
+            : "Chỉnh lưu nửa chu kỳ: 1 thyristor V1 · điều chỉnh góc mở α"}
         </Txt>
       </g>
     ),
@@ -940,7 +943,10 @@ export function CircuitSchematic({
   let model: SchematicModel;
   switch (entry.topology) {
     case "half1p-diode":
-      model = buildHalf1P(loadType);
+      model = buildHalf1P("diode", loadType);
+      break;
+    case "half1p-thyristor":
+      model = buildHalf1P("thyristor", loadType);
       break;
     case "tap1p-diode":
       model = buildTap1P("diode", loadType);
