@@ -29,7 +29,6 @@ export function MultiChannelCanvas({
   const dpr = useMemo(() => (typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1), []);
 
   // Channel configuration — 6 LANE cố định; một lane có thể chứa nhiều trace chồng nhau
-  const CHANNEL_HEIGHT = 110;
   const HEADER_HEIGHT = 26;
   const X_AXIS_HEIGHT = 28;
   const LEFT_PADDING = 44;
@@ -63,12 +62,14 @@ export function MultiChannelCanvas({
   interface LaneDef {
     label: string;
     kind?: "wave" | "valveRows" | "gateRows";
+    scaleGroup?: "V" | "A";
     traces: TraceDef[];
     valveRows?: ValveRowSet;
     gateRows?: GateRowSet;
   }
 
   const ROW_PALETTE = ["#34d399", "#60a5fa", "#fbbf24", "#f472b6", "#a78bfa", "#38bdf8"];
+  const CHANNEL_HEIGHT = 96;
 
   const lanes = useMemo<LaneDef[]>(() => {
     const mkTrace = (
@@ -91,6 +92,7 @@ export function MultiChannelCanvas({
     const list: LaneDef[] = [
       {
         label: "CH1 · NGUỒN" + (isThreePhase ? " UA UB UC" : " U2") + " [V]",
+        scaleGroup: "V",
         traces: [
           ...(isThreePhase
             ? [
@@ -119,6 +121,7 @@ export function MultiChannelCanvas({
       },
       {
         label: "CH2 · UD — ĐIỆN ÁP CHỈNH LƯU [V]",
+        scaleGroup: "V",
         traces: [
           mkTrace("udTheory", "var(--sig-theory)", "udTheory", layers.udTheory, {
             lineWidth: 1.4,
@@ -131,14 +134,17 @@ export function MultiChannelCanvas({
       },
       {
         label: "CH3 · ID — DÒNG ĐIỆN TẢI [A]",
+        scaleGroup: "A",
         traces: [mkTrace("id", "var(--sig-on)", "idSimulink", layers.idSimulink)],
       },
       {
         label: "CH4 · UT — ĐIỆN ÁP TRÊN VAN 1 [V]",
+        scaleGroup: "V",
         traces: [mkTrace("uvan", "var(--sig-warn)", "uVan1", layers.uVan1)],
       },
       {
         label: "CH5 · IT — DÒNG QUA VAN 1 [A]",
+        scaleGroup: "A",
         traces: [mkTrace("ivan", "#60a5fa", "iVan1", layers.iVan1)],
       },
       hasGates
@@ -259,6 +265,18 @@ export function MultiChannelCanvas({
     const plotLeft = LEFT_PADDING;
     const plotRight = cssWidth - RIGHT_PADDING;
 
+    const groupSamples: Record<"V" | "A", number[]> = { V: [], A: [] };
+    lanes.forEach((lane) => {
+      if (!lane.scaleGroup) return;
+      for (const t of lane.traces) {
+        if (t.visible) groupSamples[lane.scaleGroup].push(...getTraceData(t, waveforms));
+      }
+    });
+    const groupMax: Record<"V" | "A", number> = {
+      V: getNiceMax(groupSamples.V),
+      A: getNiceMax(groupSamples.A),
+    };
+
     // Draw grid and x-axis labels (bottom strip)
     const xAxisY = TOP_PADDING + totalContentHeight;
     const xAxisBottom = xAxisY + X_AXIS_HEIGHT;
@@ -339,7 +357,6 @@ export function MultiChannelCanvas({
           ctx.font = "10px monospace";
           ctx.textAlign = "left";
           ctx.textBaseline = "middle";
-          ctx.fillText(lbl, plotLeft + 4, rCy);
 
           const samples = cells[ri] ?? [];
           const blkH = rowH * 0.62;
@@ -380,6 +397,11 @@ export function MultiChannelCanvas({
             } else flush(si);
           });
           flush(samples.length);
+
+          ctx.fillStyle = "#0b0f17";
+          ctx.fillRect(plotLeft + 2, rCy - 7, 26, 14);
+          ctx.fillStyle = ROW_PALETTE[ri % ROW_PALETTE.length];
+          ctx.fillText(lbl, plotLeft + 4, rCy);
         });
         return;
       }
@@ -407,7 +429,6 @@ export function MultiChannelCanvas({
           ctx.font = "10px monospace";
           ctx.textAlign = "left";
           ctx.textBaseline = "middle";
-          ctx.fillText(`X${lbl.replace(/^V/, "")}`, plotLeft + 4, rTop + rowH * 0.52);
 
           const seq = pulses[ri] ?? [];
           ctx.beginPath();
@@ -427,6 +448,11 @@ export function MultiChannelCanvas({
           }
           ctx.lineTo(plotRight, curY);
           ctx.stroke();
+
+          ctx.fillStyle = "#0b0f17";
+          ctx.fillRect(plotLeft + 2, rTop + rowH * 0.52 - 7, 26, 14);
+          ctx.fillStyle = gateCol;
+          ctx.fillText(`X${lbl.replace(/^V/, "")}`, plotLeft + 4, rTop + rowH * 0.52);
         });
         return;
       }
@@ -462,6 +488,8 @@ export function MultiChannelCanvas({
       let maxVal: number;
       if (isDigitalLane) {
         maxVal = 1.25;
+      } else if (lane.scaleGroup && groupMax[lane.scaleGroup] > 0) {
+        maxVal = groupMax[lane.scaleGroup];
       } else {
         const combined: number[] = [];
         for (const t of visibleTraces) combined.push(...getTraceData(t, waveforms));
@@ -569,7 +597,7 @@ export function MultiChannelCanvas({
       chipX = scrubX - chipWidth - 10;
       if (chipX < plotLeft + 4) chipX = plotLeft + 4;
     }
-    const chipY = TOP_PADDING + 8;
+    const chipY = TOP_PADDING + HEADER_HEIGHT + 6;
 
     // Chip background
     ctx.fillStyle = "rgba(239, 68, 68, 0.15)";

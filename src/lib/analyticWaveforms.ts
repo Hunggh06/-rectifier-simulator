@@ -101,8 +101,9 @@ export function buildAnalyticExtras(
     phaseU.b = Math.sin(rad(p - 120));
     phaseU.c = Math.sin(rad(p - 240));
     if (phiE && phiF) {
-      phiE.push(Math.max(phaseU.a, phaseU.b, phaseU.c));
-      phiF.push(Math.min(phaseU.a, phaseU.b, phaseU.c));
+      const peak = Math.SQRT2 * 100;
+      phiE.push(peak * Math.max(phaseU.a, phaseU.b, phaseU.c));
+      phiF.push(peak * Math.min(phaseU.a, phaseU.b, phaseU.c));
     }
 
     // Dòng pha MBA: hiệu dòng van "vào" trừ van "ra" của cùng pha

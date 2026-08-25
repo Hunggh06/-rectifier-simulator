@@ -443,7 +443,7 @@ export default function Home() {
         </aside>
 
         {/* ============================ CỘT GIỮA ============================ */}
-        <section className="col-span-12 space-y-4 lg:col-span-6" aria-label="Sơ đồ và dạng sóng">
+        <section className="col-span-12 space-y-4 lg:col-span-4" aria-label="Sơ đồ mạch">
           <div className="panel p-3">
             <CircuitSchematic
               entry={activeEntry}
@@ -452,7 +452,10 @@ export default function Home() {
               thetaDeg={thetaDeg}
             />
           </div>
+        </section>
 
+        {/* ============================ CỘT PHẢI ============================ */}
+        <aside className="col-span-12 space-y-4 lg:col-span-5">
           <div className="panel">
             {/* Bật/tắt lớp sóng */}
             <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-3 py-2">
@@ -544,10 +547,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </section>
 
-        {/* ============================ CỘT PHẢI =========================== */}
-        <aside className="col-span-12 space-y-4 lg:col-span-3">
           <TheoryVsSimulinkTable circuit={activeCircuit} />
 
           <section className="panel" aria-label="Danh sách mốc chuyển mạch">
