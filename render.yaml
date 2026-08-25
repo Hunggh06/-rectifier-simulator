@@ -1,13 +1,12 @@
-# Render Blueprint — triển khai 1 click
+# Render Blueprint — Static Site (không backend, free, không sleep)
 # Trong Render: New + → Blueprint → chọn repo này → Apply
 services:
-  - type: web
+  - type: static
     name: rectifier-simulator
-    runtime: node
-    plan: free
+    runtime: static
     region: singapore
     buildCommand: npm ci && npm run build
-    startCommand: npm start
+    staticPublishPath: ./out
     envVars:
       - key: NODE_VERSION
         value: "20"
