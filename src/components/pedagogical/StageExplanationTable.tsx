@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { Activity, Clock, Cpu, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { Activity, ChevronLeft, ChevronRight, Clock, Cpu, Sparkles } from "lucide-react";
 import { Formula } from "@/components/ui/Formula";
 import {
   getCircuitExplanation,
@@ -25,6 +25,8 @@ export function StageExplanationTable({
   className?: string;
 }): JSX.Element {
   const setTheta = useSimulatorStore((s) => s.setTheta);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const explanation = useMemo(
     () => getCircuitExplanation(catalogId),
@@ -38,16 +40,53 @@ export function StageExplanationTable({
 
   const currentPh = mod360(thetaDeg);
 
-  const activeStageId = useMemo(() => {
-    if (stages.length === 0) return null;
-    const match = stages.find((st) => {
+  const activeStageIndex = useMemo(() => {
+    if (stages.length === 0) return -1;
+    const idx = stages.findIndex((st) => {
       if (st.startDeg <= st.endDeg) {
         return currentPh >= st.startDeg && currentPh < st.endDeg;
       }
       return currentPh >= st.startDeg || currentPh < st.endDeg;
     });
-    return match ? match.id : stages[0].id;
+    return idx >= 0 ? idx : 0;
   }, [stages, currentPh]);
+
+  const activeStage = stages[activeStageIndex] ?? null;
+
+  const scrollToStage = useCallback((id: string) => {
+    const el = stageRefs.current[id];
+    const container = containerRef.current;
+    if (el && container) {
+      const topPos = el.offsetTop - container.offsetTop;
+      container.scrollTo({ top: Math.max(0, topPos - 8), behavior: "smooth" });
+    }
+  }, []);
+
+  const handleSelectStage = useCallback(
+    (stage: CircuitStage) => {
+      setTheta(stage.startDeg);
+      scrollToStage(stage.id);
+    },
+    [setTheta, scrollToStage]
+  );
+
+  const handleStepStage = useCallback(
+    (dir: 1 | -1) => {
+      if (stages.length === 0) return;
+      const nextIdx = (activeStageIndex + dir + stages.length) % stages.length;
+      const nextStage = stages[nextIdx];
+      if (nextStage) {
+        handleSelectStage(nextStage);
+      }
+    },
+    [activeStageIndex, stages, handleSelectStage]
+  );
+
+  useEffect(() => {
+    if (activeStage) {
+      scrollToStage(activeStage.id);
+    }
+  }, [activeStage, scrollToStage]);
 
   if (!catalogId || stages.length === 0) {
     return (
@@ -67,35 +106,63 @@ export function StageExplanationTable({
       aria-label="Thuyết minh giai đoạn hoạt động"
       className={`overflow-hidden rounded-lg border border-line bg-surface-1 shadow-panel ${className}`}
     >
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface-2/60 px-4 py-3">
+      {/* Header với điều hướng giai đoạn */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface-2/70 px-4 py-3">
         <div className="flex items-center gap-2">
           <Activity size={15} className="text-sig-sim" aria-hidden="true" />
           <h2 className="text-sm font-semibold tracking-tight text-ink-1 sm:text-base">
-            Thuyết minh chi tiết các giai đoạn hoạt động
+            Thuyết minh các giai đoạn hoạt động
           </h2>
         </div>
-        <span
-          className="inline-flex items-center gap-1 rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide"
-          style={{
-            borderColor: "rgba(34,211,238,.35)",
-            backgroundColor: "rgba(34,211,238,.10)",
-            color: "#22d3ee",
-          }}
-        >
-          <Clock size={11} aria-hidden="true" />
-          {stages.length} giai đoạn · θ = {Math.round(thetaDeg)}°
-        </span>
+
+        <div className="flex items-center gap-1.5">
+          <span
+            className="inline-flex items-center gap-1 rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide"
+            style={{
+              borderColor: "rgba(34,211,238,.35)",
+              backgroundColor: "rgba(34,211,238,.10)",
+              color: "#22d3ee",
+            }}
+          >
+            <Clock size={11} aria-hidden="true" />
+            {activeStageIndex + 1}/{stages.length} · θ = {Math.round(thetaDeg)}°
+          </span>
+
+          <div className="flex items-center rounded-md border border-line bg-surface-3">
+            <button
+              type="button"
+              onClick={() => handleStepStage(-1)}
+              title="Giai đoạn trước"
+              className="px-1.5 py-1 text-ink-2 hover:bg-surface-2 hover:text-ink-1 transition-colors"
+            >
+              <ChevronLeft size={13} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleStepStage(1)}
+              title="Giai đoạn sau"
+              className="px-1.5 py-1 text-ink-2 hover:bg-surface-2 hover:text-ink-1 transition-colors border-l border-line"
+            >
+              <ChevronRight size={13} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Danh sách các giai đoạn */}
-      <div className="divide-y divide-line">
+      {/* Danh sách các giai đoạn có thanh cuộn mượt và auto-scroll */}
+      <div
+        ref={containerRef}
+        className="max-h-[520px] divide-y divide-line overflow-y-auto scroll-smooth"
+      >
         {stages.map((stage: CircuitStage, idx: number) => {
-          const isActive = stage.id === activeStageId;
+          const isActive = idx === activeStageIndex;
           return (
             <div
               key={stage.id}
-              onClick={() => setTheta(stage.startDeg)}
+              ref={(el) => {
+                stageRefs.current[stage.id] = el;
+              }}
+              onClick={() => handleSelectStage(stage)}
               className={`group cursor-pointer p-3.5 transition-colors duration-150 sm:p-4 ${
                 isActive
                   ? "bg-sig-sim/10 border-l-4 border-l-sig-sim"

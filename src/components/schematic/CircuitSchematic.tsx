@@ -339,12 +339,12 @@ function buildBridge1P(
         <Wire d="M 74 182 H 96 V 110 H 118" />
         <Wire d="M 74 198 H 96 V 270 H 118" />
         <Transformer1P centerTap={false} />
-        <Wire d="M 190 132 H 260 V 170 H 380 V 190" />
-        <Wire d="M 190 248 V 250 H 230 V 210 H 480 V 190" />
-        <Wire d="M 380 80 H 480" />
-        <Wire d="M 380 320 H 480" />
-        <Wire d="M 480 80 H 600" />
-        <Wire d="M 480 320 H 600" />
+        <Wire d="M 190 132 H 260 V 190 H 380" />
+        <Wire d="M 190 204 H 230 V 220 H 480 V 190" />
+        <Wire d="M 380 80 V 320" />
+        <Wire d="M 480 80 V 320" />
+        <Wire d="M 380 80 H 600" />
+        <Wire d="M 380 320 H 600" />
         <JunctionDot x={380} y={190} />
         <JunctionDot x={480} y={190} />
         <LoadBlock x={600} y={95} loadType={loadType} />
@@ -403,8 +403,7 @@ function buildTap3P(kind: ValveKind, loadType: LoadType): SchematicModel {
         {phases.map((p) => (
           <g key={`leg-${p.key}`}>
             <Wire d={`M ${p.legX} 96 V 80`} />
-            {p.srcY !== 140 && <Wire d={`M ${p.legX} 140 V 118`} />}
-            {p.srcY !== 140 && <Wire d={`M ${p.legX} 140 V ${p.srcY}`} />}
+            <JunctionDot x={p.legX} y={140} />
           </g>
         ))}
         <Wire d="M 360 80 H 600" />
@@ -445,8 +444,8 @@ function buildBridge3P(
   ];
   const feedRoutes: Record<string, string> = {
     a: "M 194 145 H 380 V 190",
-    b: "M 194 205 H 420 V 190",
-    c: "M 194 265 H 500 V 190",
+    b: "M 194 205 H 460 V 190",
+    c: "M 194 265 H 540 V 190",
   };
   const coilEnd = loadType === "RL" ? 287 : 207;
   return {
@@ -475,17 +474,14 @@ function buildBridge3P(
             <SourceCircle x={180} y={lg.srcY} label={`u${lg.ph}`} />
             <Wire d={`M 166 ${lg.srcY} H 146`} />
             <Wire d={feedRoutes[lg.ph]} />
+            <Wire d={`M ${lg.x} 80 V 320`} />
+            <JunctionDot x={lg.x} y={190} />
           </g>
         ))}
         <Wire d="M 146 145 V 265" />
         <Wire d="M 146 205 H 122" />
         <Wire d="M 380 190 H 540" />
         <Txt x={116} y={198} anchor="middle">N</Txt>
-        {legs.map((lg) => (
-          <g key={`mid-${lg.ph}`}>
-            <JunctionDot x={lg.x} y={190} />
-          </g>
-        ))}
         <Wire d="M 380 80 H 540" />
         <Wire d="M 380 320 H 540" />
         <Wire d="M 540 80 H 600" />
