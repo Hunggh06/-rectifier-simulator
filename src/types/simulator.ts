@@ -10,7 +10,7 @@
 export type LoadType = "R" | "RL";
 
 /** Gia đình mạch: 1 pha / 3 pha */
-export type CircuitFamily = "1P" | "3P";
+export type CircuitFamily = "1P" | "3P" | "C3" | "C4" | "C5";
 
 /** Một mục trong danh mục 12 mạch chỉnh lưu (tĩnh, phục vụ UI) */
 export interface CatalogEntry {
@@ -29,7 +29,13 @@ export interface CatalogEntry {
     | "bridge3p-diode"
     | "bridge3p-thyristor"
     | "bridge3p-misfire"
-    | "bridge3p-semi";
+    | "bridge3p-semi"
+    | "ac1p-regulator"
+    | "ac3p-regulator"
+    | "dcdc-buck"
+    | "dcdc-boost"
+    | "inv1p-full"
+    | "inv3p-180";
   controlled: boolean;
   /** Nhãn van theo thứ tự vẽ trên sơ đồ */
   valveLabels: string[];
@@ -45,6 +51,7 @@ export interface CircuitMetrics {
   theory: {
     /** Điện áp chỉnh lưu trung bình [V] */
     Ud: number;
+    Urms?: number;
     /** Điện áp ngược lớn nhất trên van 1 [V] */
     UngMax: number;
     /** Dòng trung bình qua tải [A] */
@@ -54,6 +61,7 @@ export interface CircuitMetrics {
   };
   simulink: {
     Ud: number;
+    Urms?: number;
     UngMax: number;
     Iavg: number;
     Irms: number;

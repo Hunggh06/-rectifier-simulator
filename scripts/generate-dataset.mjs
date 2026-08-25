@@ -31,6 +31,7 @@ const UM2 = Math.SQRT2 * U2; // 141.42 V
 const UPH = 100; // V — điện áp hiệu dụng pha 3 pha
 const UMPH = Math.SQRT2 * UPH;
 const R_LOAD = 10; // Ω
+const L_LOAD = 0.08; // H — điện cảm tải RL (80 mH)
 const VT_ON = 0.8; // V sụt áp thân van khi dẫn
 const STEP_DEG = 1;
 const THETA_MAX = 720;
@@ -994,7 +995,524 @@ const CATALOG = [
     descriptionVN:
       "Rail trên SCR + rail dưới diode (kèm diode tự do): tiết kiệm van điều khiển, ud không âm, hệ số hài dòng lưới tốt hơn cầu đối xứng cùng α.",
   },
+
+  /* ---------------- Chương 3: Điều áp xoay chiều (AC/AC) ---------------- */
+  {
+    catalogId: "ac1p_regulator",
+    circuitName: "C3 · Điều áp xoay chiều 1 pha (2 SCR ngược song song)",
+    family: "C3",
+    topology: "ac1p-regulator",
+    controlled: true,
+    valveLabels: ["T1", "T2"],
+    formulaTex: "I=\\frac{U_2}{R}\\sqrt{\\tfrac{1}{2\\pi}\\bigl(\\pi-\\alpha+\\tfrac{\\sin 2\\alpha}{2}\\bigr)}",
+    ud0FactorVsU2: 1.0,
+    descriptionVN:
+      "Hai thyristor ngược song song cắt bớt phần đầu bán chu kỳ từ α: u_tải là các đoạn sin, biên độ hiệu dụng điều chỉnh được còn tần số bằng lưới. Tải RL: van dẫn thêm góc λ, α chỉ có ý nghĩa khi α > φ.",
+  },
+  {
+    catalogId: "ac3p_regulator",
+    circuitName: "C3 · Điều áp xoay chiều 3 pha (6 SCR, tải sao)",
+    family: "C3",
+    topology: "ac3p-regulator",
+    controlled: true,
+    valveLabels: ["V1", "V3", "V5", "V4", "V6", "V2"],
+    formulaTex: "u_{ZA}:\\ \\tfrac{u_p-u_n}{2}\\ (2\\text{ van})\\quad u_{ph}\\ (3\\text{ van})",
+    ud0FactorVsU2: 1.0,
+    descriptionVN:
+      "Sáu SCR trên ba nhánh tải sao: α ≥ 60° mỗi thời điểm tối đa 2 van dẫn, điện áp pha tải là nửa điện áp dây; α lớn dần xuất hiện khoảng gián đoạn — khởi động mềm, TCR.",
+  },
+
+  /* ---------------- Chương 4: DC-DC (Buck / Boost) ---------------------- */
+  {
+    catalogId: "dcdc_buck",
+    circuitName: "C4 · Buck — bộ biến đổi giảm áp",
+    family: "C4",
+    topology: "dcdc-buck",
+    controlled: true,
+    valveLabels: ["V", "D0"],
+    formulaTex: "U_t = \\frac{t_x}{T}E = D\\,E",
+    ud0FactorVsU2: 1.0,
+    descriptionVN:
+      "IGBT V băm nguồn E thành xung u_t; D0 dẫn tiếp dòng khi V khóa; LC lọc → U_t = D·E ≤ E. Trục θ quy ước 360° = một chu kỳ cắt T; α đóng vai trò duty D.",
+  },
+  {
+    catalogId: "dcdc_boost",
+    circuitName: "C4 · Boost — bộ biến đổi tăng áp",
+    family: "C4",
+    topology: "dcdc-boost",
+    controlled: true,
+    valveLabels: ["V", "D"],
+    formulaTex: "U_o = \\frac{E}{1-D}",
+    ud0FactorVsU2: 1.0,
+    descriptionVN:
+      "V dẫn: L nạp năng lượng từ E; V khóa: L nhả năng lượng qua D vào C tải → U_o = E/(1−D) ≥ E. Trục θ quy ước 360° = một chu kỳ T; α đóng vai trò duty D.",
+  },
+
+  /* ---------------- Chương 5: Nghịch lưu nguồn áp ------------------------ */
+  {
+    catalogId: "inv1p_full",
+    circuitName: "C5 · Nghịch lưu nguồn áp 1 pha (180°)",
+    family: "C5",
+    topology: "inv1p-full",
+    controlled: true,
+    valveLabels: ["Tr1", "Tr3", "D1", "D3", "Tr4", "Tr2", "D4", "D2"],
+    formulaTex: "U_z(\\text{rms}) = E,\\quad U_{z1} = \\tfrac{4E}{\\pi\\sqrt2}",
+    ud0FactorVsU2: 1.0,
+    descriptionVN:
+      "Bốn IGBT mở theo cặp (Tr1Tr2)/(Tr3Tr4) mỗi nửa chu kỳ → u_z vuông ±E. Tải RL: đầu nửa chu kỳ dòng hồi truyền qua diode ngược song song (D1D2/D3D4) trả năng lượng về nguồn.",
+  },
+  {
+    catalogId: "inv3p_180",
+    circuitName: "C5 · Nghịch lưu nguồn áp 3 pha (180°, 6 bước)",
+    family: "C5",
+    topology: "inv3p-180",
+    controlled: true,
+    valveLabels: ["Tr1", "Tr3", "Tr5", "Tr4", "Tr6", "Tr2"],
+    formulaTex: "U_{AB}:\\ 0,\\pm E\\ \\to\\ U_{AB1} = \\tfrac{2\\sqrt3 E}{\\pi\\sqrt2}",
+    ud0FactorVsU2: 1.0,
+    descriptionVN:
+      "Sáu IGBT dẫn 180°, lệch 60° → u_AB vuông 6 bước ±E; u_phaso bậc thang 6 bậc. Dòng RL trễ pha, hồi truyền qua diode ngược — sơ đồ lõi của biến tần công nghiệp.",
+  },
 ];
+
+/* ================================================================== */
+/* Chương 3 — Điều áp xoay chiều 1 pha (2 SCR ngược song song)         */
+/* ================================================================== */
+function buildACReg1P({ alphaDeg, loadType }) {
+  const a = alphaDeg;
+  const n = thetaGrid.length;
+  const ud = new Array(n);
+  const uVan1 = new Array(n);
+  const iVan1 = new Array(n);
+  const gate = new Array(n).fill(0);
+  const events = [];
+  const rl = loadType === "RL";
+  const wTau = 2 * Math.PI * F_GRID * (L_LOAD / R_LOAD); // ωτ (độ)
+  const phi = Math.atan(wTau * Math.PI / 180); // góc lệch pha φ (rad)
+
+  // Nghiệm RL: i(θ) = (Um/Z)[sin(θ−φ) − sin(α−φ)e^{−(θ−α)/tanφ}] với θ tính từ điểm kích
+  const Z = Math.hypot(R_LOAD, 2 * Math.PI * F_GRID * L_LOAD);
+  const Um2 = Math.SQRT2 * U2;
+  const currentAt = (degFromFire, fireDeg, sign) => {
+    const th = (degFromFire * Math.PI) / 180;
+    if (!rl) return (Um2 / R_LOAD) * Math.sin(th) * sign;
+    const phiDeg = (phi * 180) / Math.PI;
+    const tauDeg = wTau;
+    const i =
+      (Um2 / Z) *
+      (Math.sin(th - phi) - Math.sin(((fireDeg - phiDeg) * Math.PI) / 180) * Math.exp(-degFromFire / tauDeg));
+    return i * sign;
+  };
+
+  // Xác định khoảng dẫn mỗi bán chu kỳ: bắt đầu α (hoặc 180+α), kết thúc khi i về 0
+  const conductionEnd = (fireDeg, sign) => {
+    let prev = currentAt(0.5, fireDeg, sign);
+    if (prev <= 0) return fireDeg + 0.5;
+    for (let d = 1; d <= 360; d += 1) {
+      const i = currentAt(d, fireDeg, sign);
+      if (i <= 0) return fireDeg + d;
+      prev = i;
+    }
+    return fireDeg + 360;
+  };
+  const end1 = conductionEnd(a, 1);
+  const end2 = conductionEnd(180 + a, -1);
+
+  for (let i = 0; i < n; i++) {
+    const ph = ((thetaGrid[i] % 360) + 360) % 360;
+    const u2 = UM2 * sinD(ph);
+    let cond = 0; // 0: không van; 1: T1; 2: T2
+    if (ph >= a && ph < Math.min(end1, 360)) cond = 1;
+    else if (ph >= 180 + a && ph < Math.min(end2, 360)) cond = 2;
+    else if (rl && end1 >= 360 && ph < end1 - 360) cond = 1;
+    else if (rl && end2 >= 360 && ph < end2 - 360) cond = 2;
+
+    ud[i] = cond ? u2 : 0;
+    uVan1[i] = cond === 1 ? 0 : u2; // T1 khóa thấy u2 (thuận chờ hoặc ngược qua T2)
+    iVan1[i] = cond === 1 ? currentAt(ph - a, a, 1) : 0;
+    gate[i] = (ph >= a && ph < a + 10) || (ph >= 180 + a && ph < 190 + a) ? 1 : 0;
+  }
+
+  events.push(
+    {
+      theta: a,
+      title: `Kích T1 tại α = ${a}°`,
+      description: rl
+        ? `Xung tới T1: dòng tăng theo nghiệm quá độ i(θ) = (Um/Z)[sin(θ−φ) − sin(α−φ)e^{−θ/ωτ}], kéo dài góc dẫn λ = ${Math.round(Math.min(end1, 360 + a) - a)}° > 180° − α do năng lượng cảm.`
+        : "T1 mở thông: u_tải = u2 ngay từ α, i = u2/R — đoạn sin bị cắt bỏ phần đầu bán chu kỳ.",
+      activeValves: ["T1"],
+      circuitState: "T1 dẫn · u_tải = u2",
+    },
+    {
+      theta: 180,
+      title: rl ? `T1 tắt tại ${Math.round(end1 % 360)}° (i = 0)` : "u2 đổi dấu — T1 tắt tự nhiên",
+      description: rl
+        ? "Dòng về 0 khi thành phần sin cân bằng phần mũ: van tự tắt, u_tải = 0 cho tới điểm kích kế tiếp — hiện tượng đặc trưng của điều áp AC tải RL."
+        : "Điện áp nguồn đổi dấu, T1 tắt tự nhiên; hai van khóa, u_tải = 0 cho tới α nửa âm.",
+      activeValves: [],
+      circuitState: "Không van dẫn · u_tải = 0",
+    },
+    {
+      theta: 180 + a,
+      title: "Kích T2 — nửa chu kỳ âm",
+      description: "T2 mở thông đối xứng T1: u_tải = u2 (âm), i âm. Hai xung G1/G2 lệch đúng 180°.",
+      activeValves: ["T2"],
+      circuitState: "T2 dẫn · u_tải = −|u2|",
+    },
+    {
+      theta: 90,
+      title: "Phạm vi điều chỉnh φ ≤ α ≤ 180°",
+      description: rl
+        ? `Với tải RL, φ = ${Math.round((phi * 180) / Math.PI)}°: α < φ dòng liên tục, u_tải mất khả năng điều chỉnh — vùng điều khiển hữu ích là α ∈ [φ, 180°].`
+        : "α = 0 → u_tải = u2 (đủ áp); α → 180° → u_tải → 0. Điều chỉnh liên tục nhờ cắt góc mở.",
+      activeValves: [],
+      circuitState: "Ghi chú phạm vi điều chỉnh",
+    }
+  );
+
+  return {
+    ud,
+    uVan1,
+    iVan1,
+    gate,
+    events: events.sort((x, y) => x.theta - y.theta).slice(0, 8),
+    switchingAngles: [a, 180 + a, 360 + a, 540 + a],
+    ungMaxTheory: UM2,
+  };
+}
+
+/* ================================================================== */
+/* Chương 3 — Điều áp xoay chiều 3 pha (6 SCR, tải sao, R)             */
+/* ================================================================== */
+function buildACReg3P({ alphaDeg }) {
+  const a = alphaDeg;
+  const n = thetaGrid.length;
+  const ud = new Array(n);
+  const uVan1 = new Array(n);
+  const iVan1 = new Array(n);
+  const gate = new Array(n).fill(0);
+  const events = [];
+
+  const fireDeg = (v) => 30 + 60 * ((Number(v.slice(1)) + 5) % 6) + a; // V1@30, V2@90...
+  const gateOn = (lbl, ph) => {
+    const ft = ((fireDeg(lbl) % 360) + 360) % 360;
+    return ((ph - ft + 360) % 360) <= 180; // van dẫn tối đa 180°
+  };
+  const TOP = { a: "V1", b: "V3", c: "V5" };
+  const BOT = { a: "V4", b: "V6", c: "V2" };
+
+  for (let i = 0; i < n; i++) {
+    const ph = ((thetaGrid[i] % 360) + 360) % 360;
+    const ua = UM2 * sinD(ph);
+    const ub = UM2 * sinD(ph - 120);
+    const uc = UM2 * sinD(ph - 240);
+    const U = { a: ua, b: ub, c: uc };
+
+    const tops = Object.values(TOP).filter((l) => gateOn(l, ph));
+    const bots = Object.values(BOT).filter((l) => gateOn(l, ph));
+    // top = pha có u lớn nhất trong các van trên đã kích; bot = nhỏ nhất trong van dưới
+    let tp = null;
+    let bp = null;
+    let best = -Infinity;
+    for (const l of tops) {
+      const k = { V1: "a", V3: "b", V5: "c" }[l];
+      if (U[k] > best) {
+        best = U[k];
+        tp = k;
+      }
+    }
+    best = Infinity;
+    for (const l of bots) {
+      const k = { V4: "a", V6: "b", V2: "c" }[l];
+      if (U[k] < best) {
+        best = U[k];
+        bp = k;
+      }
+    }
+
+    if (tp && bp && tp !== bp) {
+      ud[i] = (U[tp] - U[bp]) / 2; // 2 van dẫn → nửa điện áp dây
+    } else if (tp && bp && tp === bp) {
+      ud[i] = U[tp];
+    } else {
+      ud[i] = 0; // gián đoạn
+    }
+    uVan1[i] = tp === "a" ? 0 : ua - ud[i];
+    iVan1[i] = tp === "a" ? ud[i] / R_LOAD : 0;
+    gate[i] = ((ph - ((fireDeg("V1") % 360) + 360) % 360 + 360) % 360) < 10 ? 1 : 0;
+  }
+
+  events.push(
+    {
+      theta: ((30 + a) % 360),
+      title: `Kích V1 tại 30° + α = ${30 + a}°`,
+      description:
+        "Van đầu tiên nhận xung: cặp dẫn hình thành theo quy tắc 2 van (nửa điện áp dây chia lên pha tải) hoặc 3 van (điện áp pha đầy đủ) tùy khoảng góc.",
+      activeValves: ["V1", "V6"],
+      circuitState: "2 van dẫn · u_ZA = (u_a−u_b)/2",
+    },
+    {
+      theta: (90 + a) % 360,
+      title: "Chuyển V6 → V2 (chuyển mạch van dưới)",
+      description:
+        "Xung tới V2: pha C nối rail dưới; u_ZA chuyển sang (u_a−u_c)/2. Các khoảng dẫn xen kẽ 2 van — đặc trưng điều áp 3 pha α ≥ 60°.",
+      activeValves: ["V1", "V2"],
+      circuitState: "2 van · u_ZA = (u_a−u_c)/2",
+    },
+    {
+      theta: 30,
+      title: "Gián đoạn dòng khi α lớn",
+      description:
+        "Với α đủ lớn, có khoảng không cặp van nào thuận → u_ZA = 0. Phạm vi hữu ích α ∈ [60°, 150°]; ứng dụng soft-starter, TCR.",
+      activeValves: [],
+      circuitState: "Gián đoạn · u_ZA = 0",
+    }
+  );
+
+  return {
+    ud,
+    uVan1,
+    iVan1,
+    gate,
+    events: events.sort((x, y) => ((x.theta % 360) + 360) % 360 - ((y.theta % 360) + 360) % 360).slice(0, 6),
+    switchingAngles: [30 + a, 90 + a, 150 + a, 210 + a, 270 + a, 330 + a],
+    ungMaxTheory: Math.sqrt(6) * UM2,
+  };
+}
+
+/* ================================================================== */
+/* Chương 4 — Buck / Boost (trục 360° = 1 chu kỳ T, lặp 2 lần)          */
+/* ================================================================== */
+function buildBuck({ duty }) {
+  const D = duty / 100;
+  const n = thetaGrid.length;
+  const ud = new Array(n);
+  const uVan1 = new Array(n);
+  const iVan1 = new Array(n);
+  const gate = new Array(n).fill(0);
+  const events = [];
+  const E = 100;
+  const Ut = D * E;
+  const L = 0.1;
+  const R = R_LOAD;
+  const Tdeg = 360;
+  const ILmin = Ut / R - ((E - Ut) * D * (Tdeg / 360 / 50)) / (2 * L);
+  const ripple = ((E - Ut) * D * 0.02) / L;
+  const ILmid = Ut / R;
+
+  for (let i = 0; i < n; i++) {
+    const ph = ((thetaGrid[i] % Tdeg) + Tdeg) % Tdeg;
+    const on = ph < D * Tdeg;
+    ud[i] = on ? E : 0; // u_t
+    uVan1[i] = on ? 0 : E;
+    const tdeg = on ? ph : ph - D * Tdeg;
+    const slope = on ? (E - Ut) / (D * Tdeg) : -Ut / ((1 - D) * Tdeg);
+    iVan1[i] = on ? Math.max(ILmid + slope * (tdeg - (D * Tdeg) / 2), 0) : 0;
+    gate[i] = on ? 1 : 0;
+  }
+  void ILmin;
+  void ripple;
+
+  events.push(
+    {
+      theta: 0,
+      title: `V dẫn — băm nguồn (D = ${duty}%)`,
+      description: `IGBT V nối tải vào nguồn E: u_t = E, dòng L tăng tuyến tính với (E−U_t)/L. Diode D0 bị phân áp khóa.`,
+      activeValves: ["V"],
+      circuitState: "V dẫn · u_t = E",
+    },
+    {
+      theta: D * 360,
+      title: "V khóa — D0 dẫn tiếp dòng",
+      description: "L tự cảm giữ dòng qua D0: u_t = 0, dòng L giảm tuyến tính U_t/L. Giá trị trung bình U_t = D·E.",
+      activeValves: ["D0"],
+      circuitState: "D0 dẫn · u_t = 0",
+    },
+    {
+      theta: 180,
+      title: `U_t = D·E = ${Math.round(Ut)} V`,
+      description: "C lọc gợn → điện áp tải DC phẳng. Buck: U_t ≤ E; điều chỉnh bằng duty D (PWM tần số cao).",
+      activeValves: [],
+      circuitState: `U_t = ${Ut} V`,
+    }
+  );
+
+  return { ud, uVan1, iVan1, gate, events: events.slice(0, 6), switchingAngles: [0, D * 360], ungMaxTheory: E };
+}
+
+function buildBoost({ duty }) {
+  const D = duty / 100;
+  const n = thetaGrid.length;
+  const ud = new Array(n);
+  const uVan1 = new Array(n);
+  const iVan1 = new Array(n);
+  const gate = new Array(n).fill(0);
+  const events = [];
+  const E = 100;
+  const Uo = E / (1 - D);
+
+  for (let i = 0; i < n; i++) {
+    const ph = ((thetaGrid[i] % 360) + 360) % 360;
+    const on = ph < D * 360;
+    ud[i] = on ? E : -((Uo - E) / Uo) * E; // u_L: +E khi ON, −(Uo−E) khi OFF
+    uVan1[i] = on ? 0 : Uo;
+    const tdeg = on ? ph : ph - D * 360;
+    const slope = on ? E / (D * 360) : -(Uo - E) / ((1 - D) * 360);
+    iVan1[i] = E / ((1 - D) * (1 - D) * R_LOAD) + slope * (tdeg - 180 / 2);
+    gate[i] = on ? 1 : 0;
+  }
+
+  events.push(
+    {
+      theta: 0,
+      title: `V dẫn — L nạp năng lượng (D = ${duty}%)`,
+      description: `u_L = E, i_L tăng tuyến tính; D phân áp khóa, C nuôi tải. Thời gian này quyết định năng lượng tích trữ.`,
+      activeValves: ["V"],
+      circuitState: "V dẫn · u_L = E",
+    },
+    {
+      theta: D * 360,
+      title: "V khóa — L nhả năng lượng qua D",
+      description: `u_L đảo dấu = E − U_o < 0; dòng L cộng với E qua D nạp C và nuôi tải → U_o = E/(1−D) = ${Math.round(Uo)} V.`,
+      activeValves: ["D"],
+      circuitState: `D dẫn · U_o = ${Math.round(Uo)} V`,
+    },
+    {
+      theta: 180,
+      title: "Cân bằng năng lượng L",
+      description: "Xác lập: năng lượng nạp = nhả → U_o = E/(1−D). D càng gần 1, U_o càng lớn (giới hạn bởi tổn hao thực tế).",
+      activeValves: [],
+      circuitState: `U_o = ${Math.round(Uo)} V`,
+    }
+  );
+
+  return { ud, uVan1, iVan1, gate, events: events.slice(0, 6), switchingAngles: [0, D * 360], ungMaxTheory: Uo };
+}
+
+/* ================================================================== */
+/* Chương 5 — Nghịch lưu nguồn áp 1 pha (180°) & 3 pha (180°)          */
+/* ================================================================== */
+function buildInv1P({ loadType }) {
+  const n = thetaGrid.length;
+  const ud = new Array(n);
+  const uVan1 = new Array(n);
+  const iVan1 = new Array(n);
+  const gate = new Array(n).fill(0);
+  const events = [];
+  const rl = loadType === "RL";
+  const E = 100;
+  const wTau = 2 * Math.PI * F_GRID * (L_LOAD / R_LOAD);
+  const t0 = wTau * Math.LN2; // góc i = 0 (đầu nửa chu kỳ, diode dẫn)
+  const R = R_LOAD;
+
+  for (let i = 0; i < n; i++) {
+    const ph = ((thetaGrid[i] % 360) + 360) % 360;
+    const pos = ph < 180;
+    ud[i] = pos ? E : -E; // u_z
+    gate[i] = pos ? 1 : 0; // Tr1 (van 1) nửa dương
+    let iZ;
+    if (!rl) {
+      iZ = pos ? E / R : -E / R;
+    } else {
+      const d = pos ? ph : ph - 180;
+      const sign = pos ? 1 : -1;
+      iZ = sign * ((E / R) * (1 - 2 * Math.exp(-d / wTau)));
+    }
+    // Van 1 nhánh trái-trên: Tr1 gate nửa dương; D1 dẫn khi i_z < 0 trong nửa dương
+    const dOn = rl && pos && iZ < 0;
+    iVan1[i] = pos ? (dOn ? -iZ : iZ) : 0; // dòng qua Tr1 (+) hoặc D1 (đảo dấu để hiển thị độ lớn)
+    if (!pos && rl) iVan1[i] = 0;
+    uVan1[i] = pos ? 0 : E; // Tr1/D1 dẫn → 0; nửa kia Tr1 thấy +E
+    void dOn;
+  }
+
+  events.push(
+    {
+      theta: 0,
+      title: "Tr1, Tr2 nhận xung — u_z = +E",
+      description: rl
+        ? "Cặp Tr1Tr2 mở; nhưng dòng tải RL chưa đảo kịp → D1,D2 dẫn ngược, trả năng lượng cảm về nguồn (u_z vẫn +E). i_z đi từ −I lên 0 rồi đảo qua Tr1Tr2."
+        : "Cặp Tr1Tr2 mở: u_z = +E, i_z = E/R vuông cùng pha.",
+      activeValves: rl ? ["D1", "D2"] : ["Tr1", "Tr2"],
+      circuitState: rl ? "D1,D2 hồi truyền · u_z = +E" : "Tr1,Tr2 dẫn · u_z = +E",
+    },
+    {
+      theta: Math.round(t0),
+      title: "Dòng giao cho Tr1, Tr2 (i = 0)",
+      description: "i_z đổi dấu: diode ngừng, dòng chuyển hẳn sang IGBT — khoảng hồi truyền kết thúc.",
+      activeValves: ["Tr1", "Tr2"],
+      circuitState: "Tr1,Tr2 dẫn dòng tải",
+    },
+    {
+      theta: 180,
+      title: "Tr3, Tr4 nhận xung — u_z = −E",
+      description: "Cặp kia mở đối xứng: u_z = −E; RL → D3,D4 hồi truyền đầu nửa âm rồi dòng qua Tr3,Tr4.",
+      activeValves: rl ? ["D3", "D4"] : ["Tr3", "Tr4"],
+      circuitState: rl ? "D3,D4 hồi truyền · u_z = −E" : "Tr3,Tr4 dẫn · u_z = −E",
+    }
+  );
+
+  return { ud, uVan1, iVan1, gate, events: events.slice(0, 6), switchingAngles: [0, 180, 360, 540], ungMaxTheory: E };
+}
+
+function buildInv3P({ loadType }) {
+  const n = thetaGrid.length;
+  const ud = new Array(n);
+  const uVan1 = new Array(n);
+  const iVan1 = new Array(n);
+  const gate = new Array(n).fill(0);
+  const events = [];
+  const rl = loadType === "RL";
+  const E = 100;
+  const wTau = 2 * Math.PI * F_GRID * (L_LOAD / R_LOAD);
+
+  // Tr1 [0,180) rail + pha A; Tr4 [180,360). u_A = ±E/2 so với điểm giữa
+  for (let i = 0; i < n; i++) {
+    const ph = ((thetaGrid[i] % 360) + 360) % 360;
+    const uA = ph < 180 ? E / 2 : -E / 2;
+    const uB = ph >= 60 && ph < 240 ? E / 2 : -E / 2; // Tr3 [60,240)
+    const uC = ph >= 120 && ph < 300 ? E / 2 : -E / 2; // Tr5 [120,300)
+    ud[i] = uA - uB; // u_AB
+    uVan1[i] = uA > 0 ? 0 : E; // Tr1: dẫn → 0; khóa thấy E
+    gate[i] = ph < 180 ? 1 : 0;
+    // i_A: RL — mũ quá độ quanh ±E/(2R); R — vuông
+    let iA;
+    if (!rl) {
+      iA = ph < 180 ? E / (2 * R_LOAD) : -E / (2 * R_LOAD);
+    } else {
+      const d = ph < 180 ? ph : ph - 180;
+      const sign = ph < 180 ? 1 : -1;
+      iA = sign * ((E / (2 * R_LOAD)) * (1 - 2 * Math.exp(-d / wTau)));
+    }
+    iVan1[i] = ph < 180 ? iA : 0;
+  }
+
+  events.push(
+    {
+      theta: 0,
+      title: "Tr1, Tr6, Tr5 dẫn (180°)",
+      description: "u_AB = E (Tr1–Tr6); u_BC, u_CA theo bảng 6 bước. Mỗi van dẫn 180°, lệch 60°.",
+      activeValves: ["Tr1", "Tr6", "Tr5"],
+      circuitState: "u_AB = E",
+    },
+    {
+      theta: 60,
+      title: "Chuyển Tr5 → Tr2: u_AB = E/2? — 6 bước",
+      description: "Tr2 nhận xung thay Tr5 (rail dưới pha C → A? theo vòng 180°): u_AB = u_A − u_B = E/2 − (−E/2)… các bước bậc thang ±E, ±E/2, 0.",
+      activeValves: ["Tr1", "Tr2", "Tr5"],
+      circuitState: "u_AB = E/2",
+    },
+    {
+      theta: 180,
+      title: "Tr1 → Tr4: u_AB đảo dấu",
+      description: rl ? "D4 hồi truyền đoạn đầu nửa âm (i_A trễ)." : "u_AB = −E đối xứng.",
+      activeValves: ["Tr4", "Tr6", "Tr2"],
+      circuitState: "u_AB = −E",
+    }
+  );
+
+  return { ud, uVan1, iVan1, gate, events: events.slice(0, 6), switchingAngles: [0, 60, 120, 180, 240, 300], ungMaxTheory: E };
+}
 
 /* ================================================================== */
 /* Lập kế hoạch entries                                                */
@@ -1026,6 +1544,20 @@ function planEntries() {
   push("pha3_bridge_misfire", "RL", [60]);
   push("pha3_bridge_semicontrolled", "RL", [0, 30, 60, 90]);
   push("pha3_bridge_semicontrolled", "R", [0, 30, 60, 90]);
+
+  // ---- Chương 3: điều áp AC ----
+  push("ac1p_regulator", "R", [30, 60, 90, 120]);
+  push("ac1p_regulator", "RL", [90, 120]); // α > φ ≈ 68°
+  push("ac3p_regulator", "R", [60, 90, 120]);
+
+  // ---- Chương 4: DC-DC (alphaDeg = duty %) ----
+  push("dcdc_buck", "R", [25, 50, 75]);
+  push("dcdc_boost", "R", [25, 50, 75]);
+
+  // ---- Chương 5: nghịch lưu nguồn áp ----
+  push("inv1p_full", "R", [0]);
+  push("inv1p_full", "RL", [0]);
+  push("inv3p_180", "RL", [0]);
   return plan;
 }
 
@@ -1078,9 +1610,30 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
       isThreePhase = true;
       built = buildBridge3P({ mode: "semi", alphaDeg, loadType });
       break;
+    case "ac1p_regulator":
+      built = buildACReg1P({ alphaDeg, loadType });
+      break;
+    case "ac3p_regulator":
+      isThreePhase = true;
+      built = buildACReg3P({ alphaDeg });
+      break;
+    case "dcdc_buck":
+      built = buildBuck({ duty: alphaDeg });
+      break;
+    case "dcdc_boost":
+      built = buildBoost({ duty: alphaDeg });
+      break;
+    case "inv1p_full":
+      built = buildInv1P({ loadType });
+      break;
+    case "inv3p_180":
+      isThreePhase = true;
+      built = buildInv3P({ loadType });
+      break;
     default:
       throw new Error(`Unknown catalogId: ${catalogId}`);
   }
+  built.conductingCount ??= () => 1;
 
   /* --- uSource --- */
   const uSource = thetaGrid.map((th) =>
@@ -1129,10 +1682,15 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
   const IdSimAvg = mean(idSim);
   const IdSimRms = rms(idSim);
   const UngMaxSim = -Math.min(...uVan1Sim);
+  // AC/Inverter: đại lượng đánh giá là giá trị hiệu dụng, không phải trung bình (=0)
+  const isAcLike = catalogId.startsWith("ac") || catalogId.startsWith("inv");
+  const UrmsTh = rms(built.ud);
+  const UrmsSim = rms(udSim);
   // Mẫu số có sàn tối thiểu 2% Ud0 — tránh nổ % khi Ud lý thuyết ≈ 0 (α = 90°)
   const denomFloor = 0.05 * cat.ud0FactorVsU2 * U2;
-  const errDenom = Math.max(Math.abs(UdTh), denomFloor);
-  const errPct = (Math.abs(UdSim - UdTh) / errDenom) * 100;
+  const errDenom = Math.max(Math.abs(isAcLike ? UrmsTh : UdTh), denomFloor);
+  const errRefSim = isAcLike ? UrmsSim : UdSim;
+  const errPct = (Math.abs(errRefSim - (isAcLike ? UrmsTh : UdTh)) / errDenom) * 100;
 
   const milestones = built.events
     .map((e) => ({
@@ -1160,12 +1718,14 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
     metrics: {
       theory: {
         Ud: round2(UdTh),
+        Urms: round2(UrmsTh),
         UngMax: round2(UngMaxTh),
         Iavg: round2(IdTh),
         Sba: round2(SbaTh),
       },
       simulink: {
         Ud: round2(UdSim),
+        Urms: round2(UrmsSim),
         UngMax: round2(UngMaxSim),
         Iavg: round2(IdSimAvg),
         Irms: round2(IdSimRms),

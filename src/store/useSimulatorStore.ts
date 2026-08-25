@@ -255,6 +255,7 @@ const uaOf = (ph: number) => Math.sin(rad(ph));
 const ubOf = (ph: number) => Math.sin(rad(ph - 120));
 const ucOf = (ph: number) => Math.sin(rad(ph - 240));
 const mod360 = (x: number) => ((x % 360) + 360) % 360;
+const W_TAU = 2 * Math.PI * 50 * (0.08 / 10); // ωτ của tải RL chuẩn (độ)
 /** ph nằm trong cửa sổ [start, start+len) theo mô-đun 360 */
 const inWin = (ph: number, start: number, len: number) => mod360(ph - start) < len;
 
@@ -289,6 +290,8 @@ export function analyticConduction(
   const ph = mod360(thetaDeg);
   const a = alphaDeg;
   const rl = loadType === "RL";
+  const TOP_V: Record<PhKey, string> = { a: "V1", b: "V3", c: "V5" };
+  const BOT_V: Record<PhKey, string> = { a: "V4", b: "V6", c: "V2" };
 
   /* ---------------- 1 pha — tia hai nửa ---------------- */
   if (catalogId.startsWith("pha1_tap")) {
@@ -342,10 +345,67 @@ export function analyticConduction(
     return [];
   }
 
-  /* ---------------- 3 pha — cầu ---------------- */
-  const TOP_V: Record<PhKey, string> = { a: "V1", b: "V3", c: "V5" };
-  const BOT_V: Record<PhKey, string> = { a: "V4", b: "V6", c: "V2" };
+  /* ---------------- C3: điều áp AC ---------------- */
+  if (catalogId === "ac1p_regulator") {
+    const ph2 = ph;
+    if (ph2 >= a && ph2 < 180) return ["T1"];
+    if (ph2 >= mod360(180 + a) && ph2 < 360) return ["T2"];
+    return [];
+  }
+  if (catalogId === "ac3p_regulator") {
+    const fire = (num: number) => mod360(30 + 60 * ((num + 5) % 6) + a);
+    const on = (num: number) => mod360(ph - fire(num)) <= 180;
+    const U = { a: uaOf(ph), b: ubOf(ph), c: ucOf(ph) };
+    let tp: PhKey | null = null;
+    let bp: PhKey | null = null;
+    let best = -Infinity;
+    (["V1", "V3", "V5"] as const).forEach((l, idx) => {
+      const k = (["a", "b", "c"] as PhKey[])[idx];
+      if (on(Number(l.slice(1))) && U[k] > best) {
+        best = U[k];
+        tp = k;
+      }
+    });
+    best = Infinity;
+    (["V4", "V6", "V2"] as const).forEach((l, idx) => {
+      const k = (["a", "b", "c"] as PhKey[])[idx];
+      if (on(Number(l.slice(1))) && U[k] < best) {
+        best = U[k];
+        bp = k;
+      }
+    });
+    if (tp && bp) return [TOP_V[tp], BOT_V[bp]];
+    return [];
+  }
 
+  /* ---------------- C4: Buck / Boost ---------------- */
+  if (catalogId === "dcdc_buck") {
+    return ph < (a / 100) * 360 ? ["V"] : ["D0"];
+  }
+  if (catalogId === "dcdc_boost") {
+    return ph < (a / 100) * 360 ? ["V"] : ["D"];
+  }
+
+  /* ---------------- C5: nghịch lưu nguồn áp ---------------- */
+  if (catalogId === "inv1p_full") {
+    const rl2 = loadType === "RL";
+    if (ph < 180) return rl2 && ph < W_TAU * Math.LN2 ? ["D1", "D2"] : ["Tr1", "Tr2"];
+    return rl2 && ph - 180 < W_TAU * Math.LN2 ? ["D3", "D4"] : ["Tr3", "Tr4"];
+  }
+  if (catalogId === "inv3p_180") {
+    const seg = Math.floor(ph / 60);
+    const pairs: string[][] = [
+      ["Tr1", "Tr6", "Tr5"],
+      ["Tr1", "Tr6", "Tr2"],
+      ["Tr1", "Tr3", "Tr2"],
+      ["Tr4", "Tr3", "Tr2"],
+      ["Tr4", "Tr3", "Tr6"],
+      ["Tr4", "Tr1", "Tr6"],
+    ];
+    return pairs[seg] ?? [];
+  }
+
+  /* ---------------- 3 pha — cầu ---------------- */
   if (catalogId === "pha3_bridge_diode" || catalogId === "pha3_bridge_diode") {
     const { top, bot } = argmaxArgmin(ph);
     const TOP_D: Record<PhKey, string> = { a: "D1", b: "D3", c: "D5" };
@@ -427,6 +487,12 @@ export function computeValveStatesAt(
 
 function valveLabelsOf(circuit: CircuitSimulationData): string[] {
   const id = circuit.catalogId;
+  if (id === "ac1p_regulator") return ["T1", "T2"];
+  if (id === "ac3p_regulator") return ["V1", "V3", "V5", "V4", "V6", "V2"];
+  if (id === "dcdc_buck") return ["V", "D0"];
+  if (id === "dcdc_boost") return ["V", "D"];
+  if (id === "inv1p_full") return ["Tr1", "Tr2", "Tr3", "Tr4", "D1", "D2", "D3", "D4"];
+  if (id === "inv3p_180") return ["Tr1", "Tr2", "Tr3", "Tr4", "Tr5", "Tr6"];
   if (id === "pha3_bridge_diode") return ["D1", "D2", "D3", "D4", "D5", "D6"];
   if (id.includes("pha3_bridge_semicontrolled")) return ["V1", "V3", "V5", "D2", "D4", "D6"];
   if (id.startsWith("pha3_bridge")) return ["V1", "V2", "V3", "V4", "V5", "V6"];

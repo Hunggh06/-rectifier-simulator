@@ -11,6 +11,7 @@ interface MultiChannelCanvasProps {
   milestones?: CircuitMilestone[];
   isThreePhase?: boolean;
   extras?: AnalyticExtras | null;
+  sourceName?: string;
   className?: string;
 }
 
@@ -21,6 +22,7 @@ export function MultiChannelCanvas({
   milestones,
   isThreePhase = false,
   extras = null,
+  sourceName,
   className = "",
 }: MultiChannelCanvasProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -92,7 +94,10 @@ export function MultiChannelCanvas({
     const hasGates = !!extras && extras.gateLabels.length > 0;
     const list: LaneDef[] = [
       {
-        label: "CH1 · NGUỒN" + (isThreePhase ? " UA UB UC" : " U2") + " [V]",
+        label:
+          "CH1 · NGUỒN " +
+          (sourceName ?? (isThreePhase ? "UA UB UC" : "U2")) +
+          " [V]",
         scaleGroup: "V",
         traces: [
           ...(isThreePhase

@@ -8,7 +8,7 @@
 
 import type { CatalogEntry, LoadType, ValveState, ValveStateMap } from "@/types/simulator";
 
-type ValveKind = "diode" | "thyristor";
+type ValveKind = "diode" | "thyristor" | "igbt";
 type ValveDir = "up" | "down";
 
 interface ValvePlacement {
@@ -18,6 +18,7 @@ interface ValvePlacement {
   x: number;
   y: number;
   branchPath: string;
+  rot?: number;
 }
 
 interface SchematicModel {
@@ -102,7 +103,7 @@ function ValveSymbol({
   const flip = v.dir === "up" ? 180 : 0;
   return (
     <g>
-      <g transform={`translate(${v.x},${v.y}) rotate(${flip})`}>
+      <g transform={`translate(${v.x},${v.y}) rotate(${flip + (v.rot ?? 0)})`}>
         <line x1={0} y1={-22} x2={0} y2={-9} stroke={color} strokeWidth={1.8} vectorEffect="non-scaling-stroke" />
         <polygon
           points="-9,-9 9,-9 0,8"
@@ -119,6 +120,15 @@ function ValveSymbol({
           <g className={conducting ? "cs-gate-blink" : undefined}>
             <line x1={7} y1={9} x2={15} y2={15} stroke={color} strokeWidth={1.4} vectorEffect="non-scaling-stroke" />
             <line x1={12} y1={18} x2={18} y2={12} stroke={color} strokeWidth={1.6} vectorEffect="non-scaling-stroke" />
+          </g>
+        )}
+        {v.kind === "igbt" && (
+          <g className={conducting ? "cs-gate-blink" : undefined}>
+            <rect x={-7} y={-9} width={14} height={18} fill="none" stroke={color} strokeWidth={1.6} vectorEffect="non-scaling-stroke" />
+            <Txt x={0} y={4} anchor="middle" size={9} color={color}>
+              T
+            </Txt>
+            <line x1={-22} y1={0} x2={-7} y2={0} stroke={color} strokeWidth={1.4} vectorEffect="non-scaling-stroke" />
           </g>
         )}
       </g>
@@ -508,6 +518,279 @@ function buildBridge3P(
   };
 }
 
+/* ================================================================== */
+/* Chương 3 — Điều áp AC 1 pha / 3 pha                                 */
+/* ================================================================== */
+
+function buildACReg1P(loadType: LoadType): SchematicModel {
+  const coilEnd = loadType === "RL" ? 249 : 153;
+  return {
+    valves: [
+      { label: "T1", kind: "thyristor", dir: "down", x: 380, y: 140, branchPath: "M 380 90 V 190" },
+      { label: "T2", kind: "thyristor", dir: "up", x: 380, y: 250, branchPath: "M 380 190 V 310" },
+    ],
+    body: (
+      <g>
+        <SourceCircle x={70} y={200} label="u2" />
+        <Wire d="M 86 192 H 380" />
+        <Wire d="M 86 208 H 120 V 310 H 380" />
+        <Wire d="M 380 90 V 118" />
+        <Wire d="M 380 162 V 190" />
+        <Wire d="M 380 190 V 228" />
+        <Wire d="M 380 272 V 310" />
+        <JunctionDot x={380} y={190} />
+        <Wire d="M 380 90 H 560" />
+        <Wire d="M 380 310 H 560" />
+        <LoadBlock x={560} y={95} loadType={loadType} />
+        <Wire d={`M 560 ${coilEnd} V 310`} />
+        <Txt x={575} y={85} color="var(--sig-sim)">+</Txt>
+        <line x1={572} y1={104} x2={572} y2={coilEnd - 12} stroke={LABEL_INK} strokeWidth={1} markerEnd="url(#cs-arrow)" />
+        <Txt x={562} y={160} anchor="end" italic>u tải</Txt>
+        <Txt x={430} y={352} size={10} color="var(--ink-3)" anchor="middle">
+          2 SCR ngược song song · cắt góc α
+        </Txt>
+      </g>
+    ),
+    dcFlowPath: "M 380 90 H 600 V 320 H 380",
+  };
+}
+
+function buildACReg3P(loadType: LoadType): SchematicModel {
+  void loadType;
+  const legs = [
+    { ph: "a" as const, x: 380, srcY: 145, zy: 120 },
+    { ph: "b" as const, x: 460, srcY: 205, zy: 190 },
+    { ph: "c" as const, x: 540, srcY: 265, zy: 260 },
+  ];
+  const feedRoutes: Record<string, string> = {
+    a: "M 194 145 H 380 V 190",
+    b: "M 194 205 H 420 V 190",
+    c: "M 194 265 H 500 V 190",
+  };
+  const TOP = { a: "V1", b: "V3", c: "V5" };
+  const BOT = { a: "V4", b: "V6", c: "V2" };
+  return {
+    valves: legs.flatMap((lg) => [
+      { label: TOP[lg.ph], kind: "thyristor" as const, dir: "up" as const, x: lg.x, y: 102, branchPath: `M ${lg.x} 80 V 170` },
+      { label: BOT[lg.ph], kind: "thyristor" as const, dir: "up" as const, x: lg.x, y: 298, branchPath: `M ${lg.x} 320 V 210` },
+    ]),
+    body: (
+      <g>
+        {legs.map((lg) => (
+          <g key={lg.ph}>
+            <SourceCircle x={180} y={lg.srcY} label={`u${lg.ph}`} />
+            <Wire d={`M 166 ${lg.srcY} H 146`} />
+            <Wire d={feedRoutes[lg.ph]} />
+          </g>
+        ))}
+        <Wire d="M 146 145 V 265" />
+        <Wire d="M 146 205 H 122" />
+        <Wire d="M 380 190 H 540" />
+        <Txt x={116} y={198} anchor="middle">N</Txt>
+        <Wire d="M 380 80 H 540" />
+        <Wire d="M 380 320 H 540" />
+        {legs.map((lg) => (
+          <g key={`z-${lg.ph}`}>
+            <JunctionDot x={lg.x} y={190} />
+            <Wire d={`M ${lg.x} 190 H 600 V ${lg.zy + 29}`} />
+            <rect x={586} y={lg.zy} width={28} height={58} rx={3} fill="none" stroke={WIRE} strokeWidth={1.6} />
+            <Txt x={620} y={lg.zy + 33}>Z</Txt>
+          </g>
+        ))}
+        <Wire d="M 614 149 V 289" />
+        <Txt x={628} y={222} italic>N</Txt>
+        <Txt x={460} y={352} size={10} color="var(--ink-3)" anchor="middle">
+          6 SCR · tải sao · u_ZA = nửa u_dây (2 van) hoặc u_pha (3 van)
+        </Txt>
+      </g>
+    ),
+    dcFlowPath: undefined,
+  };
+}
+
+/* ================================================================== */
+/* Chương 4 — Buck / Boost                                             */
+/* ================================================================== */
+
+function buildBuck(loadType: LoadType): SchematicModel {
+  void loadType;
+  return {
+    valves: [
+      { label: "V", kind: "igbt", dir: "down", x: 300, y: 140, branchPath: "M 300 90 V 190" },
+      { label: "D0", kind: "diode", dir: "up", x: 300, y: 250, branchPath: "M 300 190 V 310" },
+    ],
+    body: (
+      <g>
+        <SourceCircle x={70} y={200} label="E" />
+        <Wire d="M 86 192 H 120 V 90 H 300" />
+        <Wire d="M 86 208 H 120 V 310 H 540" />
+        <Wire d="M 300 90 V 118" />
+        <Wire d="M 300 162 V 190" />
+        <Wire d="M 300 190 V 228" />
+        <Wire d="M 300 272 V 310" />
+        <JunctionDot x={300} y={190} />
+        <Wire d="M 300 190 H 320" />
+        <path d="M 320 190 a 9 9 0 0 1 18 0 a 9 9 0 0 1 18 0 a 9 9 0 0 1 18 0 a 9 9 0 0 1 18 0" fill="none" stroke={WIRE} strokeWidth={1.6} />
+        <Txt x={356} y={178} italic>L</Txt>
+        <Wire d="M 392 190 H 540" />
+        <JunctionDot x={440} y={190} />
+        <Wire d="M 440 190 V 240" />
+        <line x1={424} y1={240} x2={456} y2={240} stroke={WIRE} strokeWidth={2} />
+        <line x1={424} y1={250} x2={456} y2={250} stroke={WIRE} strokeWidth={2} />
+        <Wire d="M 440 250 V 310" />
+        <Txt x={466} y={248} italic>C</Txt>
+        <LoadBlock x={540} y={190} loadType="R" />
+        <Wire d="M 540 248 V 310" />
+        <Txt x={556} y={182} color="var(--sig-sim)">+</Txt>
+        <line x1={522} y1={198} x2={522} y2={236} stroke={LABEL_INK} strokeWidth={1} markerEnd="url(#cs-arrow)" />
+        <Txt x={512} y={222} anchor="end" italic>U t</Txt>
+        <Txt x={420} y={352} size={10} color="var(--ink-3)" anchor="middle">
+          U t = D·E ≤ E · trục 360° = chu kỳ T
+        </Txt>
+      </g>
+    ),
+    dcFlowPath: "M 300 90 H 540 V 320 H 120",
+  };
+}
+
+function buildBoost(loadType: LoadType): SchematicModel {
+  void loadType;
+  return {
+    valves: [
+      { label: "V", kind: "igbt", dir: "down", x: 270, y: 140, branchPath: "M 270 90 V 310" },
+      { label: "D", kind: "diode", dir: "down", rot: -90, x: 360, y: 90, branchPath: "M 270 90 H 560" },
+    ],
+    body: (
+      <g>
+        <SourceCircle x={70} y={200} label="E" />
+        <Wire d="M 86 192 H 120 V 90 H 150" />
+        <Wire d="M 86 208 H 120 V 310 H 560" />
+        <path d="M 150 90 a 9 9 0 0 1 18 0 a 9 9 0 0 1 18 0 a 9 9 0 0 1 18 0 a 9 9 0 0 1 18 0" fill="none" stroke={WIRE} strokeWidth={1.6} />
+        <Txt x={196} y={78} italic>L</Txt>
+        <Wire d="M 222 90 H 560" />
+        <Wire d="M 270 90 V 118" />
+        <Wire d="M 270 162 V 310" />
+        <JunctionDot x={270} y={90} />
+        <JunctionDot x={420} y={90} />
+        <Wire d="M 420 90 V 240" />
+        <line x1={404} y1={240} x2={436} y2={240} stroke={WIRE} strokeWidth={2} />
+        <line x1={404} y1={250} x2={436} y2={250} stroke={WIRE} strokeWidth={2} />
+        <Wire d="M 420 250 V 310" />
+        <Txt x={446} y={248} italic>C</Txt>
+        <LoadBlock x={560} y={95} loadType="R" />
+        <Wire d="M 560 153 V 310" />
+        <Txt x={576} y={85} color="var(--sig-sim)">+</Txt>
+        <line x1={542} y1={104} x2={542} y2={141} stroke={LABEL_INK} strokeWidth={1} markerEnd="url(#cs-arrow)" />
+        <Txt x={532} y={126} anchor="end" italic>U o</Txt>
+        <Txt x={420} y={352} size={10} color="var(--ink-3)" anchor="middle">
+          U o = E/(1−D) ≥ E · trục 360° = chu kỳ T
+        </Txt>
+      </g>
+    ),
+    dcFlowPath: "M 270 90 H 560 V 320 H 120",
+  };
+}
+
+/* ================================================================== */
+/* Chương 5 — Nghịch lưu nguồn áp 1 pha / 3 pha                        */
+/* ================================================================== */
+
+function buildInv1P(loadType: LoadType): SchematicModel {
+  const hasL = loadType === "RL";
+  const mk = (label: string, x: number, y: number, dir: "up" | "down"): ValvePlacement => ({
+    label,
+    kind: "igbt",
+    dir,
+    x,
+    y,
+    branchPath: `M ${x} ${dir === "down" ? 80 : 320} V ${dir === "down" ? 190 : 190}`,
+  });
+  return {
+    valves: [
+      mk("Tr1", 340, 120, "down"),
+      mk("Tr3", 460, 120, "down"),
+      mk("Tr4", 340, 260, "up"),
+      mk("Tr2", 460, 260, "up"),
+      { label: "D1", kind: "diode", dir: "up", x: 385, y: 120, branchPath: "" },
+      { label: "D3", kind: "diode", dir: "up", x: 505, y: 120, branchPath: "" },
+      { label: "D4", kind: "diode", dir: "down", x: 385, y: 260, branchPath: "" },
+      { label: "D2", kind: "diode", dir: "down", x: 505, y: 260, branchPath: "" },
+    ],
+    body: (
+      <g>
+        <SourceCircle x={70} y={200} label="E" />
+        <Wire d="M 86 192 H 120 V 80 H 460" />
+        <Wire d="M 86 208 H 120 V 320 H 460" />
+        <Wire d="M 340 80 V 98" />
+        <Wire d="M 460 80 V 98" />
+        <Wire d="M 340 142 V 238" />
+        <Wire d="M 460 142 V 238" />
+        <Wire d="M 340 282 V 320" />
+        <Wire d="M 460 282 V 320" />
+        <JunctionDot x={340} y={190} />
+        <JunctionDot x={460} y={190} />
+        <Wire d="M 340 190 H 370 V 227" />
+        <Wire d="M 460 190 V 227" />
+        <rect x={370} y={227} width={60} height={26} rx={3} fill="none" stroke={WIRE} strokeWidth={1.6} />
+        <Txt x={400} y={244} anchor="middle">Z</Txt>
+        {hasL && <Txt x={400} y={272} size={10} color="var(--ink-3)" anchor="middle">(R–L)</Txt>}
+        <Txt x={300} y={186} anchor="end" italic>u z</Txt>
+        <Txt x={400} y={352} size={10} color="var(--ink-3)" anchor="middle">
+          4 IGBT + 4 diode ngược song song · dẫn 180°
+        </Txt>
+      </g>
+    ),
+    dcFlowPath: undefined,
+  };
+}
+
+function buildInv3P(loadType: LoadType): SchematicModel {
+  void loadType;
+  const legs = [
+    { ph: "a" as const, x: 380, srcY: 145, zy: 120 },
+    { ph: "b" as const, x: 460, srcY: 205, zy: 190 },
+    { ph: "c" as const, x: 540, srcY: 265, zy: 260 },
+  ];
+  const feedRoutes: Record<string, string> = {
+    a: "M 194 145 H 380 V 190",
+    b: "M 194 205 H 420 V 190",
+    c: "M 194 265 H 500 V 190",
+  };
+  const TOP = { a: "Tr1", b: "Tr3", c: "Tr5" };
+  const BOT = { a: "Tr4", b: "Tr6", c: "Tr2" };
+  return {
+    valves: legs.flatMap((lg) => [
+      { label: TOP[lg.ph], kind: "igbt" as const, dir: "up" as const, x: lg.x, y: 102, branchPath: `M ${lg.x} 80 V 170` },
+      { label: BOT[lg.ph], kind: "igbt" as const, dir: "up" as const, x: lg.x, y: 298, branchPath: `M ${lg.x} 320 V 210` },
+    ]),
+    body: (
+      <g>
+        <SourceCircle x={180} y={205} label="E" />
+        <Wire d="M 196 197 H 240 V 80 H 540" />
+        <Wire d="M 196 213 H 240 V 320 H 540" />
+        {legs.map((lg) => (
+          <g key={lg.ph}>
+            <JunctionDot x={lg.x} y={190} />
+            <Wire d={`M ${lg.x} 190 H 600 V ${lg.zy + 29}`} />
+            <rect x={586} y={lg.zy} width={28} height={58} rx={3} fill="none" stroke={WIRE} strokeWidth={1.6} />
+            <Txt x={620} y={lg.zy + 33}>Z</Txt>
+          </g>
+        ))}
+        <Wire d="M 614 149 V 289" />
+        <Txt x={628} y={222} italic>N</Txt>
+        <Wire d="M 380 80 H 540" />
+        <Wire d="M 380 320 H 540" />
+        <Txt x={300} y={120} anchor="end" size={10} color="var(--ink-3)">+E/2</Txt>
+        <Txt x={300} y={300} anchor="end" size={10} color="var(--ink-3)">−E/2</Txt>
+        <Txt x={460} y={352} size={10} color="var(--ink-3)" anchor="middle">
+          6 IGBT dẫn 180° · lệch 60° (kèm diode ngược song song)
+        </Txt>
+      </g>
+    ),
+    dcFlowPath: undefined,
+  };
+}
+
 /* CSS nhúng trong SVG — dash chạy, gate nháy, tắt theo reduced-motion */
 const SVG_CSS = `
 .cs-flowdash { animation: cs-dashflow 0.9s linear infinite; }
@@ -581,6 +864,24 @@ export function CircuitSchematic({
       break;
     case "bridge3p-semi":
       model = buildBridge3P("semi", loadType);
+      break;
+    case "ac1p-regulator":
+      model = buildACReg1P(loadType);
+      break;
+    case "ac3p-regulator":
+      model = buildACReg3P(loadType);
+      break;
+    case "dcdc-buck":
+      model = buildBuck(loadType);
+      break;
+    case "dcdc-boost":
+      model = buildBoost(loadType);
+      break;
+    case "inv1p-full":
+      model = buildInv1P(loadType);
+      break;
+    case "inv3p-180":
+      model = buildInv3P(loadType);
       break;
   }
 

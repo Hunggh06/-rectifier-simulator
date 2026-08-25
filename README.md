@@ -1,9 +1,17 @@
-# Simulator Chỉnh lưu — Simulink Verified Pipeline
+# Simulator Điện tử công suất — Simulink Verified Pipeline
 
-Bộ mô phỏng & đối chiếu dữ liệu cho **Chương 2: Chỉnh lưu** (Điện tử công suất) gồm hai giai đoạn:
+Bộ mô phỏng & đối chiếu dữ liệu cho **Điện tử công suất (Chương 2, 3, 4, 5 — ĐH Công nghiệp Hà Nội)** gồm:
 
-1. **MATLAB/Simulink pipeline** (`matlab/export_simulink_data.m`) — tự động build & chạy mô phỏng **11 mạch chỉnh lưu** (1P/3P, tia/cầu, Diode/Thyristor/bán điều khiển/kích sai), quét α ∈ {0°,30°,60°,90°,120°}, trích dạng sóng xác lập `u_d, i_d, u_van, i_van, gate`, đối chiếu sai số với công thức giải tích và xuất `src/data/simulink_verified_dataset.simulink.json`.
-2. **Web simulator (Next.js 14)** — nạp dataset đã kiểm chứng: sơ đồ mạch SVG động (van đổi màu theo trạng thái dẫn, hạt dòng chạy), máy hiện sóng Canvas 6 kênh chồng **Lý thuyết (nét đứt) ↔ Simulink (nét liền)**, vạch quét θ đồng bộ, **tự dừng giải thích tại các mốc chuyển mạch**, bảng đối chiếu sai số.
+1. **Bộ dữ liệu 17 mạch / 81 bản ghi**:
+   - **Chương 2 (Chỉnh lưu)**: 1P tia, 1P cầu (Diode, Thyristor, Bán ĐK), 3P tia (Diode, Thyristor), 3P cầu (Diode, Thyristor, Bán ĐK, Kích sai thứ tự).
+   - **Chương 3 (Điều áp xoay chiều)**: Điều áp AC 1 pha (2 SCR ngược song song, R & RL), Điều áp AC 3 pha (6 SCR, tải sao).
+   - **Chương 4 (Biến đổi DC-DC)**: Buck converter (giảm áp), Boost converter (tăng áp).
+   - **Chương 5 (Nghịch lưu nguồn áp)**: Nghịch lưu 1 pha đối xứng (4 IGBT + 4 diode), Nghịch lưu 3 pha 180° (6 IGBT).
+2. **Web simulator (Next.js 14)** — nạp dataset đã kiểm chứng:
+   - Sơ đồ mạch SVG động cho **17 topology** (van đổi màu theo trạng thái dẫn, hạt dòng chạy, nhãn Tr/D/V/T).
+   - Máy hiện sóng Canvas đa kênh: CH1 nguồn (kèm bao φ_E/φ_F cho 3P), CH2 u_d (Lý thuyết ↔ Simulink), CH3 i_tải, CH4 u_van, CH5 i_van, CH5b (khối dòng từng van — tải R: nửa sin, tải RL: phẳng, freewheeling nét gạch), CH6 Gate (xung đơn / xung kép 60°), CH7 dòng pha MBA.
+   - Thang đo nhóm vật lý (V / A), chế độ **Quét liên tục** & **Bước ▸** qua từng mốc chuyển mạch.
+   - Bảng đối chiếu Lý thuyết ↔ Simulink: tự động tính theo $U_d$ (chỉnh lưu/DC-DC) hoặc $U_{rms}$ (AC/Nghịch lưu) kèm huy hiệu **VERIFIED**.
 
 ![Dashboard 1 pha tia Diode](docs/screenshots/dash-1pha-tia-diode.png)
 ![Cầu 3 pha Thyristor α=60°](docs/screenshots/dash-3p-cau-thyristor-a60.png)

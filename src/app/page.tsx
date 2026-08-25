@@ -232,9 +232,12 @@ export default function Home() {
     [currentMilestoneIndex, milestones, jumpToMilestone]
   );
 
-  const families: Array<{ key: "1P" | "3P"; label: string }> = [
-    { key: "1P", label: "Một pha" },
-    { key: "3P", label: "Ba pha" },
+  const families: Array<{ key: "1P" | "3P" | "C3" | "C4" | "C5"; label: string }> = [
+    { key: "1P", label: "C2 · Chỉnh lưu 1 pha" },
+    { key: "3P", label: "C2 · Chỉnh lưu 3 pha" },
+    { key: "C3", label: "C3 · Điều áp xoay chiều" },
+    { key: "C4", label: "C4 · Biến đổi DC-DC" },
+    { key: "C5", label: "C5 · Nghịch lưu nguồn áp" },
   ];
 
   return (
@@ -530,6 +533,13 @@ export default function Home() {
               layers={layers}
               milestones={milestones}
               isThreePhase={activeEntry?.family === "3P"}
+              sourceName={
+                activeEntry?.family === "C4"
+                  ? "E"
+                  : activeEntry?.family === "C5"
+                    ? "E (DC)"
+                    : undefined
+              }
               extras={extras}
               className="p-2 pt-1"
             />

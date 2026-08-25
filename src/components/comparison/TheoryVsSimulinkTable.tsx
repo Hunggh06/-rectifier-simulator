@@ -69,24 +69,39 @@ interface MetricRow {
   errorPercent: number | null;
 }
 
-function buildRows(metrics: CircuitSimulationData["metrics"]): MetricRow[] {
+function buildRows(
+  metrics: CircuitSimulationData["metrics"],
+  isAcLike: boolean
+): MetricRow[] {
   const { theory, simulink } = metrics;
+  const firstRow: MetricRow =
+    isAcLike && theory.Urms !== undefined
+      ? {
+          id: "Urms",
+          quantityVN: "Điện áp tải hiệu dụng",
+          symbolTex: "U_{rms}",
+          theory: formatSI(theory.Urms, "V"),
+          simulink: formatSI(simulink.Urms ?? 0, "V"),
+          errorPercent: simulink.errorPercent,
+        }
+      : {
+          id: "Ud",
+          quantityVN: "Điện áp chỉnh lưu trung bình",
+          symbolTex: "U_{d}",
+          theory: formatSI(theory.Ud, "V"),
+          simulink: formatSI(simulink.Ud, "V"),
+          errorPercent: simulink.errorPercent,
+        };
+
   return [
-    {
-      id: "Ud",
-      quantityVN: "Điện áp chỉnh lưu trung bình",
-      symbolTex: "U_{d}",
-      theory: formatSI(theory.Ud, "V"),
-      simulink: formatSI(simulink.Ud, "V"),
-      errorPercent: simulink.errorPercent,
-    },
+    firstRow,
     {
       id: "UngMax",
       quantityVN: "Điện áp ngược cực đại trên van",
       symbolTex: "U_{ng,max}",
       theory: formatSI(theory.UngMax, "V"),
       simulink: formatSI(simulink.UngMax, "V"),
-      errorPercent: simulink.errorPercent,
+      errorPercent: isAcLike ? null : simulink.errorPercent,
     },
     {
       id: "Iavg",
@@ -94,7 +109,7 @@ function buildRows(metrics: CircuitSimulationData["metrics"]): MetricRow[] {
       symbolTex: "I_{d\\,tb}",
       theory: formatSI(theory.Iavg, "A"),
       simulink: formatSI(simulink.Iavg, "A"),
-      errorPercent: simulink.errorPercent,
+      errorPercent: isAcLike ? null : simulink.errorPercent,
     },
     {
       id: "Irms",
@@ -125,7 +140,8 @@ export function TheoryVsSimulinkTable({
   circuit,
   className = "",
 }: TheoryVsSimulinkTableProps): JSX.Element {
-  const rows = circuit ? buildRows(circuit.metrics) : [];
+  const isAcLike = !!circuit && (circuit.catalogId.startsWith("ac") || circuit.catalogId.startsWith("inv"));
+  const rows = circuit ? buildRows(circuit.metrics, isAcLike) : [];
   const udError = circuit ? circuit.metrics.simulink.errorPercent : null;
   const verified = udError !== null && udError < 3;
 
@@ -139,7 +155,7 @@ export function TheoryVsSimulinkTable({
         {udError !== null ? (
           <>
             <p className="text-base font-medium text-ink-1 sm:text-lg">
-              Sai số Ud:{" "}
+              {isAcLike ? "Sai số U_rms: " : "Sai số Ud: "}
               <span className={`font-mono tabular-nums ${errorTierClass(udError)}`}>
                 {formatPercent(udError)}
               </span>
