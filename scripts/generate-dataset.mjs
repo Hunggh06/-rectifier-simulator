@@ -352,7 +352,8 @@ function buildBridge1P({ mode, alphaDeg, loadType }) {
     if (mode === "diode") {
       v1on = ph < 180; // (D1,D3)
     } else if (mode === "thyristor") {
-      v1on = ph >= a && ph < 180 + a; // cặp (V1,V2)
+      // RL liên tục: cặp sau giữ dòng đủ 180°; tải R: van ngừng dòng khi u2 đổi dấu
+      v1on = rl ? ph >= a && ph < 180 + a : ph >= a && ph < 180;
     } else {
       v1on = ph >= a && ph < 180 + a; // V1 dẫn dài hơn: [a, 180+a] nhờ tựdoan
     }
@@ -631,9 +632,10 @@ function buildTap3P({ alphaDeg, controlled, loadType }) {
 }
 
 /** 3 pha cầu: diode / thyristor đối xứng / sai thứ tự / bán điều khiển */
-function buildBridge3P({ mode, alphaDeg }) {
+function buildBridge3P({ mode, alphaDeg, loadType }) {
   // mode: 'diode' | 'thyristor' | 'misfire' | 'semi'
   const a = alphaDeg;
+  const rl = loadType === "RL";
   const n = thetaGrid.length;
   const ud = new Array(n);
   const uVan1 = new Array(n);
@@ -747,6 +749,8 @@ function buildBridge3P({ mode, alphaDeg }) {
       udVal = uTop - uBot;
       // Bán điều khiển có diode tự do: ud không thể âm
       if (mode === "semi" && udVal < 0) udVal = 0;
+      // Tải R: dòng đứt khi điện áp dây đảo dấu — ud không thể âm
+      if (!rl && mode !== "semi" && udVal < 0) udVal = 0;
       ud[i] = udVal;
       // Van 1 (rail trên, pha A): cathode nối rail+ → u_V1 = ua − u(pha rail trên)
       uVan1[i] = st.top === "a" ? 0 : uaOf(ph) - uTop;
@@ -1008,7 +1012,9 @@ function planEntries() {
   push("pha1_bridge_diode", "R", [0]);
   push("pha1_bridge_diode", "RL", [0]);
   push("pha1_bridge_thyristor", "RL", [0, 30, 60, 90, 120]);
+  push("pha1_bridge_thyristor", "R", [0, 30, 60, 90, 120]);
   push("pha1_bridge_semicontrolled", "RL", [0, 30, 60, 90, 120]);
+  push("pha1_bridge_semicontrolled", "R", [0, 30, 60, 90, 120]);
   push("pha3_tap_diode", "R", [0]);
   push("pha3_tap_diode", "RL", [0]);
   push("pha3_tap_thyristor", "R", [0, 30, 45, 60, 90, 120]);
@@ -1016,8 +1022,10 @@ function planEntries() {
   push("pha3_bridge_diode", "R", [0]);
   push("pha3_bridge_diode", "RL", [0]);
   push("pha3_bridge_thyristor", "RL", [0, 30, 60, 90]);
+  push("pha3_bridge_thyristor", "R", [0, 30, 60]);
   push("pha3_bridge_misfire", "RL", [60]);
   push("pha3_bridge_semicontrolled", "RL", [0, 30, 60, 90]);
+  push("pha3_bridge_semicontrolled", "R", [0, 30, 60, 90]);
   return plan;
 }
 
@@ -1056,19 +1064,19 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
       break;
     case "pha3_bridge_diode":
       isThreePhase = true;
-      built = buildBridge3P({ mode: "diode", alphaDeg });
+      built = buildBridge3P({ mode: "diode", alphaDeg, loadType });
       break;
     case "pha3_bridge_thyristor":
       isThreePhase = true;
-      built = buildBridge3P({ mode: "thyristor", alphaDeg });
+      built = buildBridge3P({ mode: "thyristor", alphaDeg, loadType });
       break;
     case "pha3_bridge_misfire":
       isThreePhase = true;
-      built = buildBridge3P({ mode: "misfire", alphaDeg });
+      built = buildBridge3P({ mode: "misfire", alphaDeg, loadType });
       break;
     case "pha3_bridge_semicontrolled":
       isThreePhase = true;
-      built = buildBridge3P({ mode: "semi", alphaDeg });
+      built = buildBridge3P({ mode: "semi", alphaDeg, loadType });
       break;
     default:
       throw new Error(`Unknown catalogId: ${catalogId}`);
