@@ -147,6 +147,85 @@ function collectSwitchAngles(events) {
 /* Các họ xây dựng dạng sóng lý thuyết                                 */
 /* ================================================================== */
 
+/** Chỉnh lưu 1 pha 1 nửa chu kỳ — Diode (1 van) */
+function buildHalf1P({ loadType }) {
+  const n = thetaGrid.length;
+  const ud = new Array(n);
+  const uVan1 = new Array(n);
+  const iVan1 = new Array(n);
+  const gate = new Array(n).fill(0);
+  const events = [];
+  const rl = loadType === "RL";
+  const wTau = 2 * Math.PI * F_GRID * (L_LOAD / R_LOAD);
+  const phi = Math.atan(wTau * Math.PI / 180);
+
+  let lambda = 180;
+  if (rl) {
+    const Z = Math.hypot(R_LOAD, 2 * Math.PI * F_GRID * L_LOAD);
+    for (let d = 180; d <= 360; d += 0.5) {
+      const thRad = (d * Math.PI) / 180;
+      const cur = (UM2 / Z) * (Math.sin(thRad - phi) + Math.sin(phi) * Math.exp(-d / wTau));
+      if (cur <= 0) {
+        lambda = d;
+        break;
+      }
+    }
+  }
+
+  for (let i = 0; i < n; i++) {
+    const ph = ((thetaGrid[i] % 360) + 360) % 360;
+    const u2 = UM2 * sinD(ph);
+    const cond = ph < lambda;
+    ud[i] = cond ? u2 : 0;
+    uVan1[i] = cond ? 0 : u2;
+    iVan1[i] = cond ? (rl ? Math.max(ud[i] / R_LOAD, 0) : Math.max(u2 / R_LOAD, 0)) : 0;
+  }
+
+  events.push(
+    {
+      theta: 0,
+      title: "D1 bắt đầu dẫn (nửa chu kỳ dương)",
+      description:
+        "u2 chuyển sang phân cực thuận, D1 mở thông tự nhiên nối trực tiếp u2 ra tải.",
+      activeValves: ["D1"],
+      circuitState: "D1 dẫn · ud = u2",
+    },
+    {
+      theta: 90,
+      title: "Cực đại điện áp chỉnh lưu",
+      description: "ud đạt đỉnh Um2 = √2·U2 = 141,4 V. Dòng tải đạt cực đại cùng pha.",
+      activeValves: ["D1"],
+      circuitState: "Đỉnh sóng · ud = √2 U2",
+    },
+    {
+      theta: 180,
+      title: rl ? `u2 đổi dấu — L duy trì dòng D1 (đến ${Math.round(lambda)}°)` : "u2 về 0 — D1 khóa tự nhiên",
+      description: rl
+        ? "u2 đổi dấu âm nhưng năng lượng từ trường trong cuộn cảm L ép D1 tiếp tục dẫn, kéo ud âm đến khi dòng triệt tiêu."
+        : "u2 đổi dấu âm, D1 phân cực ngược và tự ngắt. ud = 0 suốt nửa chu kỳ âm.",
+      activeValves: rl ? ["D1"] : [],
+      circuitState: rl ? "D1 giữ dòng · ud < 0" : "D1 khóa · ud = 0",
+    },
+    {
+      theta: 270,
+      title: "Điện áp ngược cực đại trên D1",
+      description: "D1 chịu toàn bộ điện áp ngược của nguồn xoay chiều, Ung,max = -√2·U2 = -141,4 V.",
+      activeValves: [],
+      circuitState: "D1 khóa · u_D1 = -√2 U2",
+    }
+  );
+
+  return {
+    ud,
+    uVan1,
+    iVan1,
+    gate,
+    events: events.sort((x, y) => x.theta - y.theta),
+    switchingAngles: [0, Math.round(lambda)],
+    ungMaxTheory: UM2,
+  };
+}
+
 /** Trả về { ud, uVan1, iVan1, gate, conductingCount, events } cho tải R hoặc RL */
 function buildTap1P({ alphaDeg, controlled, loadType }) {
   const a = alphaDeg;
@@ -864,6 +943,18 @@ function buildBridge3P({ mode, alphaDeg, loadType }) {
 /* ================================================================== */
 const CATALOG = [
   {
+    catalogId: "pha1_half_diode",
+    circuitName: "CL 1 pha nửa chu kỳ — Diode",
+    family: "1P",
+    topology: "half1p-diode",
+    controlled: false,
+    valveLabels: ["D1"],
+    formulaTex: "U_d = \\frac{\\sqrt{2}}{\\pi}U_2 \\approx 0{,}45\\,U_2",
+    ud0FactorVsU2: 0.45,
+    descriptionVN:
+      "Chỉnh lưu nửa chu kỳ 1 pha dùng 1 diode: sơ đồ cơ bản nhất, chỉ dẫn điện trong nửa chu kỳ dương. Điện áp trung bình Ud = 0,45·U2, hệ số đập mạch lớn (157%), dung lượng biến áp S_ba ≈ 3,09·Pd.",
+  },
+  {
     catalogId: "pha1_tap_diode",
     circuitName: "CL 1 pha tia 2 nửa — Diode",
     family: "1P",
@@ -1523,6 +1614,9 @@ function planEntries() {
     for (const al of alphas) plan.push({ catalogId, loadType, alphaDeg: al });
   };
 
+  // ---- 1 pha ----
+  push("pha1_half_diode", "R", [0]);
+  push("pha1_half_diode", "RL", [0]);
   push("pha1_tap_diode", "R", [0]);
   push("pha1_tap_diode", "RL", [0]);
   push("pha1_tap_thyristor", "R", [0, 30, 60, 90, 120]);
@@ -1570,6 +1664,9 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
   let isThreePhase = false;
 
   switch (catalogId) {
+    case "pha1_half_diode":
+      built = buildHalf1P({ loadType });
+      break;
     case "pha1_tap_diode":
       built = buildTap1P({ alphaDeg, controlled: false, loadType });
       break;
@@ -1665,6 +1762,8 @@ function buildEntry({ catalogId, loadType, alphaDeg }) {
   const IdTh = Math.max(UdTh, 0) / R_LOAD;
   const UngMaxTh = built.ungMaxTheory;
   const SbaFactors = {
+    pha1_half_diode_R: 3.09,
+    pha1_half_diode_RL: 3.09,
     pha1_tap_diode_R: 1.48,
     pha1_tap_diode_RL: 1.34,
     pha1_tap_thyristor_R: 1.48,

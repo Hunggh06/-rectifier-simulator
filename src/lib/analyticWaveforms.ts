@@ -35,6 +35,7 @@ export interface AnalyticExtras {
 const mod360 = (x: number) => ((x % 360) + 360) % 360;
 
 function valveLabelSet(catalogId: string): string[] {
+  if (catalogId === "pha1_half_diode") return ["D1"];
   if (catalogId === "ac1p_regulator") return ["T1", "T2"];
   if (catalogId === "ac3p_regulator") return ["V1", "V3", "V5", "V4", "V6", "V2"];
   if (catalogId === "dcdc_buck") return ["V", "D0"];
@@ -137,7 +138,9 @@ export function buildAnalyticExtras(
 
     // Dòng pha MBA: hiệu dòng van "vào" trừ van "ra" của cùng pha
     let iline = 0;
-    if (catalogId === "ac1p_regulator") {
+    if (catalogId === "pha1_half_diode") {
+      iline = actSet.has("D1") ? 1 : 0;
+    } else if (catalogId === "ac1p_regulator") {
       iline = actSet.has("T1") ? 1 : actSet.has("T2") ? -1 : 0;
     } else if (catalogId === "dcdc_buck" || catalogId === "dcdc_boost") {
       iline = actSet.has("V") ? 1 : 0;

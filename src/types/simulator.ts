@@ -19,6 +19,7 @@ export interface CatalogEntry {
   family: CircuitFamily;
   /** Khóa topology để CircuitSchematic biết vẽ sơ đồ nào */
   topology:
+    | "half1p-diode"
     | "tap1p-diode"
     | "tap1p-thyristor"
     | "bridge1p-diode"

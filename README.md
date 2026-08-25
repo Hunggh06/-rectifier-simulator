@@ -2,8 +2,8 @@
 
 Bộ mô phỏng & đối chiếu dữ liệu cho **Điện tử công suất (Chương 2, 3, 4, 5 — ĐH Công nghiệp Hà Nội)** gồm:
 
-1. **Bộ dữ liệu 17 mạch / 81 bản ghi**:
-   - **Chương 2 (Chỉnh lưu)**: 1P tia, 1P cầu (Diode, Thyristor, Bán ĐK), 3P tia (Diode, Thyristor), 3P cầu (Diode, Thyristor, Bán ĐK, Kích sai thứ tự).
+1. **Bộ dữ liệu 18 mạch / 83 bản ghi**:
+   - **Chương 2 (Chỉnh lưu)**: 1P nửa chu kỳ Diode, 1P tia 2 nửa (Diode, Thyristor), 1P cầu (Diode, Thyristor, Bán ĐK), 3P tia (Diode, Thyristor), 3P cầu (Diode, Thyristor, Bán ĐK, Kích sai thứ tự).
    - **Chương 3 (Điều áp xoay chiều)**: Điều áp AC 1 pha (2 SCR ngược song song, R & RL), Điều áp AC 3 pha (6 SCR, tải sao).
    - **Chương 4 (Biến đổi DC-DC)**: Buck converter (giảm áp), Boost converter (tăng áp).
    - **Chương 5 (Nghịch lưu nguồn áp)**: Nghịch lưu 1 pha đối xứng (4 IGBT + 4 diode), Nghịch lưu 3 pha 180° (6 IGBT).

@@ -35,6 +35,57 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
   /* ======================================================================== */
   /* CHƯƠNG 2: CHỈNH LƯU 1 PHA                                                */
   /* ======================================================================== */
+  pha1_half_diode: {
+    formulas: {
+      uOut: "U_d = \\frac{\\sqrt{2}}{\\pi} U_2 \\approx 0{,}45\\,U_2 = 45{,}0\\text{ V}",
+      uRevMax: "U_{ng,max} = \\sqrt{2}\\,U_2 = U_{m2} = 141{,}4\\text{ V}",
+      iValveAvg: "I_{v,tb} = I_d = \\frac{U_d}{R}",
+      iValveRms: "I_{v,rms} = \\frac{U_{m2}}{2R} = \\frac{U_2}{\\sqrt{2}R}",
+      sBa: "S_{ba} \\approx 3{,}09\\,P_d\\; (\\text{hiệu suất sử dụng biến áp rất thấp})",
+      ripple: "f_{g\\text{ợ}n} = f = 50\\text{ Hz},\\quad K_{nb} = \\frac{\\pi}{2} \\approx 157\\%",
+      special: {
+        label: "Đặc điểm chỉnh lưu nửa chu kỳ",
+        tex: "\\text{Từ thông lõi biến áp bị từ hóa 1 chiều; chỉ dẫn dòng trong nửa chu kỳ } u_2 > 0",
+      },
+    },
+    getStages: (_a, loadType) => {
+      const rl = loadType === "RL";
+      const endDeg = rl ? 245 : 180;
+      return [
+        {
+          id: "half1p_d_pos",
+          startDeg: 0,
+          endDeg: endDeg,
+          intervalTex: `\\theta \\in [0^\\circ, ${endDeg}^\\circ)`,
+          valves: "D_1",
+          title: "Nửa chu kỳ dương — D1 phân cực thuận dẫn điện",
+          uOutTex: "u_d(\\theta) = u_2(\\theta) = \\sqrt{2}U_2\\sin\\theta",
+          uValveTex: "u_{D1} = 0\\text{ V}",
+          iLoadTex:
+            loadType === "RL"
+              ? "i_d(\\theta) = \\frac{U_m}{Z}\\left[\\sin(\\theta-\\varphi) + \\sin\\varphi\\,e^{-\\theta/\\tan\\varphi}\\right]"
+              : "i_d(\\theta) = \\frac{\\sqrt{2}U_2}{R}\\sin\\theta",
+          physicsExplanation:
+            rl
+              ? "u2 dương làm Anode D1 dương hơn Cathode. D1 mở thông nối u2 ra tải. Tại 180°, u2 đổi dấu âm nhưng năng lượng từ trường trong cuộn cảm L tiếp tục duy trì dòng qua D1 đến λ ≈ 245° làm ud bị kéo âm."
+              : "u2 dương làm D1 phân cực thuận mở thông. Dòng điện và điện áp tải có dạng nửa hình sin. D1 tự khóa tại 180° khi u2 về 0.",
+        },
+        {
+          id: "half1p_d_neg",
+          startDeg: endDeg,
+          endDeg: 360,
+          intervalTex: `\\theta \\in [${endDeg}^\\circ, 360^\\circ)`,
+          valves: "\\text{Khóa ngắt}",
+          title: "Nửa chu kỳ âm — D1 phân cực ngược khóa hoàn toàn",
+          uOutTex: "u_d(\\theta) = 0\\text{ V}",
+          uValveTex: "u_{D1}(\\theta) = u_2(\\theta) = \\sqrt{2}U_2\\sin\\theta < 0",
+          iLoadTex: "i_d(\\theta) = 0\\text{ A}",
+          physicsExplanation:
+            "D1 chịu toàn bộ điện áp âm của nguồn u2. Điện áp ngược cực đại đạt Ung,max = √2 U2 tại 270°. Tải không có điện áp và dòng điện.",
+        },
+      ];
+    },
+  },
   pha1_tap_diode: {
     formulas: {
       uOut: "U_d = \\frac{2\\sqrt{2}}{\\pi} U_2 \\approx 0{,}9\\,U_2 = 89{,}9\\text{ V}",

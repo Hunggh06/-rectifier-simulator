@@ -293,6 +293,12 @@ export function analyticConduction(
   const TOP_V: Record<PhKey, string> = { a: "V1", b: "V3", c: "V5" };
   const BOT_V: Record<PhKey, string> = { a: "V4", b: "V6", c: "V2" };
 
+  /* ---------------- 1 pha — nửa chu kỳ ---------------- */
+  if (catalogId === "pha1_half_diode") {
+    const end = rl ? 245 : 180;
+    return ph < end ? ["D1"] : [];
+  }
+
   /* ---------------- 1 pha — tia hai nửa ---------------- */
   if (catalogId.startsWith("pha1_tap")) {
     if (catalogId.endsWith("diode")) {
@@ -487,6 +493,7 @@ export function computeValveStatesAt(
 
 function valveLabelsOf(circuit: CircuitSimulationData): string[] {
   const id = circuit.catalogId;
+  if (id === "pha1_half_diode") return ["D1"];
   if (id === "ac1p_regulator") return ["T1", "T2"];
   if (id === "ac3p_regulator") return ["V1", "V3", "V5", "V4", "V6", "V2"];
   if (id === "dcdc_buck") return ["V", "D0"];

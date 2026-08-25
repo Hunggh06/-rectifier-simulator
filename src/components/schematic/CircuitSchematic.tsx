@@ -231,6 +231,49 @@ function Transformer1P({ centerTap }: { centerTap: boolean }) {
 }
 
 /* ================================================================== */
+/* Builder — 1 pha nửa chu kỳ (Diode 1 van)                             */
+/* ================================================================== */
+
+function buildHalf1P(loadType: LoadType): SchematicModel {
+  const coilEnd = loadType === "RL" ? 249 : 153;
+  return {
+    valves: [
+      {
+        label: "D1",
+        kind: "diode",
+        dir: "down",
+        rot: -90,
+        x: 360,
+        y: 132,
+        branchPath: "M 190 132 H 560",
+      },
+    ],
+    body: (
+      <g>
+        <SourceCircle x={58} y={190} />
+        <Wire d="M 74 182 H 96 V 110 H 118" />
+        <Wire d="M 74 198 H 96 V 270 H 118" />
+        <Transformer1P centerTap={false} />
+        <Wire d="M 190 132 H 338" />
+        <Wire d="M 382 132 H 560" />
+        <LoadBlock x={560} y={95} loadType={loadType} />
+        <Wire d={`M 560 ${coilEnd} V 280 H 190 V 204`} />
+        <Txt x={575} y={85} color="var(--sig-sim)">+</Txt>
+        <Txt x={575} y={coilEnd + 16} color="var(--sig-sim)">−</Txt>
+        <line x1={572} y1={104} x2={572} y2={coilEnd - 12} stroke={LABEL_INK} strokeWidth={1} markerEnd="url(#cs-arrow)" />
+        <Txt x={564} y={160} anchor="end" italic>ud</Txt>
+        <line x1={420} y1={120} x2={480} y2={120} stroke={LABEL_INK} strokeWidth={1} markerEnd="url(#cs-arrow)" />
+        <Txt x={450} y={114} anchor="middle" italic>id</Txt>
+        <Txt x={380} y={345} size={10} color="var(--ink-3)" anchor="middle">
+          Chỉnh lưu nửa chu kỳ: 1 diode D1 · dẫn dòng nửa chu kỳ dương u2 &gt; 0
+        </Txt>
+      </g>
+    ),
+    dcFlowPath: `M 190 132 H 560 V ${coilEnd} V 280 H 190`,
+  };
+}
+
+/* ================================================================== */
 /* Builder — 1 pha tia hai nửa (diode / thyristor), điểm giữa thứ cấp   */
 /* ================================================================== */
 
@@ -896,6 +939,9 @@ export function CircuitSchematic({
 
   let model: SchematicModel;
   switch (entry.topology) {
+    case "half1p-diode":
+      model = buildHalf1P(loadType);
+      break;
     case "tap1p-diode":
       model = buildTap1P("diode", loadType);
       break;
