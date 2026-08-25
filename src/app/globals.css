@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Surfaces — cool zinc family, off-black */
+  --surface-0: #0a0c10;
+  --surface-1: #10131a;
+  --surface-2: #161a23;
+  --surface-3: #1d222e;
+
+  /* Hairlines */
+  --line: #232936;
+  --line-strong: #333b4d;
+
+  /* Ink */
+  --ink-1: #e7eaf0;
+  --ink-2: #98a1b3;
+  --ink-3: #626c80;
+
+  /* Signal accents (locked roles) */
+  --sig-sim: #22d3ee;    /* cyan  — Simulink measured */
+  --sig-theory: #f5a524; /* amber — analytic theory */
+  --sig-scrub: #ef4444;  /* red   — phase scrubber */
+  --sig-on: #34d399;     /* green — conducting valve */
+  --sig-gate: #a78bfa;   /* violet— gate pulse */
+  --sig-warn: #fb7185;   /* rose  — reverse blocking */
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-surface-0 text-ink-1 antialiased;
+  font-feature-settings: "tnum" 1; /* tabular numerals for readouts */
+}
+
+/* Technical scrollbar */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: var(--surface-1);
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 8px;
+  border: 2px solid var(--surface-1);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #46506a;
+}
+
+@layer components {
+  .panel {
+    @apply rounded-lg border border-line bg-surface-1 shadow-panel;
+  }
+  .panel-header {
+    @apply flex items-center gap-2 border-b border-line px-4 py-2.5 text-[13px] font-medium tracking-wide text-ink-2 uppercase;
+  }
+  .readout {
+    @apply font-mono tabular-nums;
+  }
+}
+
+/* Range slider — technical scrubber look */
+input[type="range"].scrubber {
+  @apply h-1.5 w-full cursor-pointer appearance-none rounded-full bg-surface-3 outline-none;
+}
+input[type="range"].scrubber::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 22px;
+  border-radius: 3px;
+  background: var(--sig-scrub);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+input[type="range"].scrubber::-moz-range-thumb {
+  width: 12px;
+  height: 20px;
+  border-radius: 3px;
+  background: var(--sig-scrub);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+input[type="range"].scrubber:focus-visible {
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
