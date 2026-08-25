@@ -108,11 +108,16 @@ export function buildAnalyticExtras(
 
     // Dòng pha MBA: hiệu dòng van "vào" trừ van "ra" của cùng pha
     let iline = 0;
-    const pick = (labels: string[]) => labels.find((l) => actSet.has(l));
     if (!is3p) {
-      const topOn = pick(["D1", "V1"]) !== undefined;
-      const botOn = pick(["D2", "V4"]) !== undefined || pick(["D4"]) !== undefined;
-      iline = (topOn ? 1 : 0) - (botOn ? 1 : 0);
+      if (catalogId.includes("tap")) {
+        const fwd = actSet.has("D1") || actSet.has("V1");
+        const rev = actSet.has("D2") || actSet.has("V2");
+        iline = (fwd ? 1 : 0) - (rev ? 1 : 0);
+      } else {
+        const fwd = actSet.has("D1") || actSet.has("V1");
+        const ret = actSet.has("D4") || actSet.has("V4");
+        iline = (fwd ? 1 : 0) - (ret ? 1 : 0);
+      }
     } else if (isBridge) {
       const topA = actSet.has("V1") || actSet.has("D1");
       const botA = actSet.has("V4") || actSet.has("D4");

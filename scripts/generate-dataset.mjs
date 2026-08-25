@@ -408,24 +408,24 @@ function buildBridge1P({ mode, alphaDeg, loadType }) {
   }
 
   const nameV1 = mode === "diode" ? "D1" : "V1";
-  const namePair = mode === "diode" ? "D1, D3" : mode === "thyristor" ? "V1, V2" : "V1, D2";
+  const namePair = mode === "diode" ? "D1, D2" : mode === "thyristor" ? "V1, V2" : "V1, D2";
 
   events.push(
     {
       theta: mode === "diode" ? 0 : a,
-      title: mode === "diode" ? "(D1, D3) dẫn tự nhiên" : `Kích cặp (V1, V2) tại α = ${a}°`,
+      title: mode === "diode" ? "(D1, D2) dẫn tự nhiên" : `Kích cặp (V1, V2) tại α = ${a}°`,
       description:
         mode === "diode"
-          ? "Nửa chu kỳ dương: D1 và D3 mở thông, dòng đi A → D1 → tải → D3 → B. Hai van khóa còn lại chia nhau chịu u2."
+          ? "Nửa chu kỳ dương: D1 và D2 mở thông, dòng đi A → D1 → tải → D2 → B. Hai van khóa còn lại chia nhau chịu u2."
           : "Xung kích đồng thời lên V1 và V2: dòng tải chuyển sang nhánh chéo mới, ud = u_AB = u2. Cầu đối xứng cho phép ud âm nhờ van giữ dòng.",
-      activeValves: mode === "diode" ? ["D1", "D3"] : mode === "thyristor" ? ["V1", "V2"] : ["V1", "D2"],
+      activeValves: mode === "diode" ? ["D1", "D2"] : mode === "thyristor" ? ["V1", "V2"] : ["V1", "D2"],
       circuitState: `${namePair} dẫn · ud = u2`,
     },
     {
       theta: 90,
       title: "Đỉnh ud nửa dương",
       description: "ud = Um2 = √2·U2. So với sơ đồ tia, mỗi van ở đây chỉ chịu U_ng,max = √2·U2 — bằng một nửa, đó là ưu điểm nổi bật của sơ đồ cầu.",
-      activeValves: mode === "diode" ? ["D1", "D3"] : ["V1", "V2"],
+      activeValves: mode === "diode" ? ["D1", "D2"] : ["V1", "V2"],
       circuitState: "Đỉnh sóng · U_ng,max = √2·U2",
     }
   );
@@ -448,15 +448,15 @@ function buildBridge1P({ mode, alphaDeg, loadType }) {
         mode === "thyristor"
           ? "Kích cặp (V3, V4)"
           : mode === "diode"
-            ? "Chuyển mạch sang (D2, D4)"
+            ? "Chuyển mạch sang (D3, D4)"
             : `Kích V3 tại 180° + α`,
       description:
         mode === "thyristor"
           ? "Cặp van đối diện nhận xung: dòng chuyển từ (V1,V2) sang (V3,V4), ud = −u2 vẫn dương nhờ chiều dòng qua tải không đổi."
           : mode === "diode"
-            ? "Nửa chu kỳ âm: D2 và D4 dẫn, dòng tải vẫn cùng chiều qua tải. Chuyển mạch tự nhiên tại điểm không của u2."
+            ? "Nửa chu kỳ âm: D3 và D4 dẫn, dòng tải vẫn cùng chiều qua tải. Chuyển mạch tự nhiên tại điểm không của u2."
             : "V3 mở thông nối pha B lên rail+: dòng đi B → V3 → tải → D4 → A, ud = −u2 = +|u2|. Dòng thứ cấp MBA đổi dấu (dạng vuông đối xứng với tải RL).",
-      activeValves: mode === "diode" ? ["D2", "D4"] : mode === "thyristor" ? ["V3", "V4"] : ["V3", "D4"],
+      activeValves: mode === "diode" ? ["D3", "D4"] : mode === "thyristor" ? ["V3", "V4"] : ["V3", "D4"],
       circuitState:
         mode === "thyristor"
           ? "(V3, V4) dẫn · ud = −u2 > 0"
@@ -467,14 +467,14 @@ function buildBridge1P({ mode, alphaDeg, loadType }) {
       title: "Van khóa chịu điện áp ngược cực đại",
       description:
         "Van 1 đang khóa thấy u_V1 = u2 với cực trị −√2·U2. Khác sơ đồ tia (2√2·U2), cầu chỉ yêu cầu van chịu một nửa — đánh đổi bằng gấp đôi số van.",
-      activeValves: mode === "diode" ? ["D2", "D4"] : mode === "thyristor" ? ["V3", "V4"] : ["V3", "D4"],
+      activeValves: mode === "diode" ? ["D3", "D4"] : mode === "thyristor" ? ["V3", "V4"] : ["V3", "D4"],
       circuitState: "u_D1 = −√2·U2 (ngược)",
     },
     {
       theta: 360 + (mode === "diode" ? 0 : a),
       title: "Lặp chu kỳ",
       description: "Chu trình lặp mỗi 360°; tần số gợn ud = 2×f_lưới = 100 Hz.",
-      activeValves: mode === "diode" ? ["D1", "D3"] : ["V1", "V2"],
+      activeValves: mode === "diode" ? ["D1", "D2"] : ["V1", "V2"],
       circuitState: "Lặp chu kỳ",
     }
   );

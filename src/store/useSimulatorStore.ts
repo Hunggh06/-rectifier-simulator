@@ -306,7 +306,7 @@ export function analyticConduction(
   /* ---------------- 1 pha — cầu ---------------- */
   if (catalogId.startsWith("pha1_bridge")) {
     if (catalogId.endsWith("diode")) {
-      return ph < 180 ? ["D1", "D3"] : ["D2", "D4"];
+      return ph < 180 ? ["D1", "D2"] : ["D3", "D4"];
     }
     if (catalogId.endsWith("thyristor")) {
       return inWin(ph, a, 180) ? ["V1", "V2"] : ["V3", "V4"];

@@ -291,7 +291,7 @@ function buildBridge1P(
     {
       label: `${L}1`,
       kind: topKind,
-      dir: "down",
+      dir: "up",
       x: 380,
       y: 102,
       branchPath: "M 380 80 V 170",
@@ -299,7 +299,7 @@ function buildBridge1P(
     {
       label: `${L}3`,
       kind: topKind,
-      dir: "down",
+      dir: "up",
       x: 480,
       y: 102,
       branchPath: "M 480 80 V 170",
@@ -444,7 +444,7 @@ function buildBridge3P(
       {
         label: TOP[lg.ph],
         kind: topKind,
-        dir: "down" as const,
+        dir: "up" as const,
         x: lg.x,
         y: 102,
         branchPath: `M ${lg.x} 80 V 170`,
