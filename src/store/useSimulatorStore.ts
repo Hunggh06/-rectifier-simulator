@@ -40,6 +40,7 @@ interface SimulatorState {
 
   /* Milestone */
   pausedAtMilestoneTheta: number | null;
+  pauseAtMilestones: boolean;
 
   /* Lớp sóng hiển thị */
   layers: WaveLayerVisibility;
@@ -61,6 +62,7 @@ interface SimulatorState {
   toggleLayer: (key: keyof WaveLayerVisibility) => void;
   jumpToMilestone: (theta: number) => void;
   dismissMilestonePause: () => void;
+  togglePauseAtMilestone: () => void;
 }
 
 /** Tìm bản ghi mô phỏng khớp lựa chọn hiện tại */
@@ -111,6 +113,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => ({
   playSpeed: 2,
 
   pausedAtMilestoneTheta: null,
+  pauseAtMilestones: false,
 
   layers: { ...DEFAULT_LAYERS },
 
@@ -195,6 +198,9 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => ({
     set({ thetaDeg: theta, isPlaying: false, pausedAtMilestoneTheta: theta }),
 
   dismissMilestonePause: () => set({ pausedAtMilestoneTheta: null }),
+
+  togglePauseAtMilestone: () =>
+    set((s) => ({ pauseAtMilestones: !s.pauseAtMilestones })),
 }));
 
 /** Hook tiện lợi: lấy bản ghi mô phỏng đang hoạt động */
@@ -220,92 +226,201 @@ export function useActiveCatalogEntry(): CatalogEntry | null {
 }
 
 /* ------------------------------------------------------------------ */
-/* Tiện ích tính trạng thái van từ dữ liệu                             */
+/* Engine dẫn giải tích — PORT 1-1 từ scripts/generate-dataset.mjs      */
+/* (trước đây dùng heuristic milestone ±30° nên hiển thị sai cặp van     */
+/*  ở nửa thời gian quanh mỗi mốc — nay thay bằng bảng giải tích)        */
 /* ------------------------------------------------------------------ */
 
+const rad = (d: number) => (d * Math.PI) / 180;
+const uaOf = (ph: number) => Math.sin(rad(ph));
+const ubOf = (ph: number) => Math.sin(rad(ph - 120));
+const ucOf = (ph: number) => Math.sin(rad(ph - 240));
+const mod360 = (x: number) => ((x % 360) + 360) % 360;
+/** ph nằm trong cửa sổ [start, start+len) theo mô-đun 360 */
+const inWin = (ph: number, start: number, len: number) => mod360(ph - start) < len;
+
+type PhKey = "a" | "b" | "c";
+
+function argmaxArgmin(ph: number): { top: PhKey; bot: PhKey } {
+  const arr: Array<[PhKey, number]> = [
+    ["a", uaOf(ph)],
+    ["b", ubOf(ph)],
+    ["c", ucOf(ph)],
+  ];
+  let top = arr[0];
+  let bot = arr[0];
+  for (const p of arr) {
+    if (p[1] > top[1]) top = p;
+    if (p[1] < bot[1]) bot = p;
+  }
+  return { top: top[0], bot: bot[0] };
+}
+
 /**
- * Xác định trạng thái các van tại góc θ hiện hành.
- * activeValves của milestone gần nhất (±0.5°) được dùng trực tiếp;
- * ngoài ra suy luận từ dấu dòng van: |iVan| > ngưỡng → conducting,
- * uVan âm sâu → reverse-blocked, còn lại → forward-blocked.
+ * Danh sách nhãn van đang dẫn tại θ — NHÃN KHỚP SCHEMATIC
+ * (generator dùng V* cho mọi mode cầu 3P, schematic dùng D* cho mode diode
+ *  và rail dưới bán điều khiển — hàm này chuẩn hoá về nhãn schematic).
+ */
+export function analyticConduction(
+  catalogId: string,
+  alphaDeg: number,
+  loadType: "R" | "RL",
+  thetaDeg: number
+): string[] {
+  const ph = mod360(thetaDeg);
+  const a = alphaDeg;
+  const rl = loadType === "RL";
+
+  /* ---------------- 1 pha — tia hai nửa ---------------- */
+  if (catalogId.startsWith("pha1_tap")) {
+    if (catalogId.endsWith("diode")) {
+      return ph < 180 ? ["D1"] : ["D2"];
+    }
+    // Thyristor: T1 kích tại α; RL duy trì đủ 180° (đến khi T2 kích),
+    // tải R đoạn dẫn ngắn hơn: kết thúc khi pha hết bán chu kỳ dương.
+    const len = rl ? 180 : 180 - a;
+    if (inWin(ph, a, len)) return ["V1"];
+    if (inWin(ph, mod360(180 + a), len)) return ["V2"];
+    return [];
+  }
+
+  /* ---------------- 1 pha — cầu ---------------- */
+  if (catalogId.startsWith("pha1_bridge")) {
+    if (catalogId.endsWith("diode")) {
+      return ph < 180 ? ["D1", "D3"] : ["D2", "D4"];
+    }
+    if (catalogId.endsWith("thyristor")) {
+      return inWin(ph, a, 180) ? ["V1", "V2"] : ["V3", "V4"];
+    }
+    // Bán điều khiển: rail trên SCR lệch α, rail dưới diode tự nhiên;
+    // RL có freewheeling qua cặp cùng phía sau biên 180°.
+    if (rl) {
+      if (inWin(ph, a, 180 - a)) return ["V1", "D2"];
+      if (inWin(ph, 180, a)) return ["V1", "D4"]; // freewheel
+      if (inWin(ph, 180 + a, 180 - a)) return ["V3", "D4"];
+      return ["V3", "D2"]; // freewheel [360, 360+α)
+    }
+    if (inWin(ph, a, 180 - a)) return ["V1", "D2"];
+    if (inWin(ph, 180 + a, 180 - a)) return ["V3", "D4"];
+    return [];
+  }
+
+  /* ---------------- 3 pha — tia (M3) ---------------- */
+  if (catalogId.startsWith("pha3_tap")) {
+    const V = catalogId.endsWith("thyristor");
+    const lbl: Record<PhKey, string> = V
+      ? { a: "V1", b: "V2", c: "V3" }
+      : { a: "D1", b: "D2", c: "D3" };
+    if (!V) {
+      return [lbl[argmaxArgmin(ph).top]];
+    }
+    // Điểm tự nhiên {a:30,b:150,c:270}; span RL=120°, R=min(120,150−α)
+    const span = rl ? 120 : Math.min(120, 150 - a);
+    const natStart: Record<PhKey, number> = { a: 30, b: 150, c: 270 };
+    for (const k of ["a", "b", "c"] as PhKey[]) {
+      if (inWin(ph, natStart[k] + a, span)) return [lbl[k]];
+    }
+    return [];
+  }
+
+  /* ---------------- 3 pha — cầu ---------------- */
+  const TOP_V: Record<PhKey, string> = { a: "V1", b: "V3", c: "V5" };
+  const BOT_V: Record<PhKey, string> = { a: "V4", b: "V6", c: "V2" };
+
+  if (catalogId === "pha3_bridge_diode" || catalogId === "pha3_bridge_diode") {
+    const { top, bot } = argmaxArgmin(ph);
+    const TOP_D: Record<PhKey, string> = { a: "D1", b: "D3", c: "D5" };
+    const BOT_D: Record<PhKey, string> = { a: "D4", b: "D6", c: "D2" };
+    return [TOP_D[top], BOT_D[bot]];
+  }
+
+  if (catalogId.includes("semicontrolled")) {
+    // Rail trên SCR (V1@30+α, V3@150+α, V5@270+α — chọn lần kích gần nhất trước ph);
+    // rail dưới diode tự nhiên (argmin). Cùng pha → freewheel ud=0.
+    const { bot } = argmaxArgmin(ph);
+    const BOT_D: Record<PhKey, string> = { a: "D4", b: "D6", c: "D2" };
+    const scrTimes: Array<{ k: PhKey; t: number }> = [
+      { k: "a", t: 30 + a },
+      { k: "b", t: 150 + a },
+      { k: "c", t: 270 + a },
+    ];
+    let best = scrTimes[0];
+    let bestDelta = Infinity;
+    for (const s of scrTimes) {
+      const d = mod360(ph - s.t);
+      if (d < bestDelta) {
+        bestDelta = d;
+        best = s;
+      }
+    }
+    if (best.k === bot) return [TOP_V[best.k], BOT_D[best.k]]; // freewheel
+    return [TOP_V[best.k], BOT_D[bot]];
+  }
+
+  // Thyristor đối xứng & misfire — máy trạng thái theo thứ tự kích
+  const misfire = catalogId.endsWith("misfire");
+  const fireOrder = ["V1", "V2", "V3", "V4", "V5", "V6"];
+  const effectiveOrder = misfire ? ["V1", "V2", "V3", "V4", "V6", "V5"] : fireOrder;
+  const fireTime: Record<string, number> = {};
+  fireOrder.forEach((v, idx) => (fireTime[v] = 30 + 60 * idx));
+  const phaseOfTop: Record<string, PhKey> = { V1: "a", V3: "b", V5: "c" };
+  const phaseOfBot: Record<string, PhKey> = { V4: "a", V6: "b", V2: "c" };
+
+  let cur: number | null = null;
+  for (let k = 0; k < 6; k++) {
+    const ft = mod360(fireTime[effectiveOrder[k]] + a);
+    const nt = mod360(fireTime[effectiveOrder[(k + 1) % 6]] + a);
+    const inW = ft <= nt ? ph >= ft && ph < nt : ph >= ft || ph < nt;
+    if (inW) {
+      cur = k;
+      break;
+    }
+  }
+  if (cur === null) return [];
+  const curV = effectiveOrder[cur];
+  const prevV = effectiveOrder[(cur - 1 + 6) % 6];
+  const topV = phaseOfTop[curV] ? curV : phaseOfTop[prevV] ? prevV : null;
+  const botV = phaseOfBot[curV] ? curV : phaseOfBot[prevV] ? prevV : null;
+  if (!topV || !botV) {
+    // Hai van cùng rail dẫn → freewheel ud=0 (đúng vật lý, hiện cả hai van)
+    return [prevV, curV];
+  }
+  return [topV, botV];
+}
+
+/**
+ * Xác định trạng thái các van tại góc θ hiện hành — giải tích thuần,
+ * đồng bộ tuyệt đối với dữ liệu sóng/milestone do generator sinh ra.
  */
 export function computeValveStatesAt(
   circuit: CircuitSimulationData,
   thetaDeg: number
 ): ValveStateMap {
-  const idx = Math.round(((thetaDeg % 720) + 720) % 720);
-  const w = circuit.waveforms;
-  const n = w.thetaDeg.length;
-  const i = Math.min(Math.max(idx, 0), n - 1);
-
   const states: ValveStateMap = {};
+  const active = new Set(
+    analyticConduction(circuit.catalogId, circuit.alphaDeg, circuit.loadType, thetaDeg)
+  );
   for (const label of valveLabelsOf(circuit)) {
-    states[label] = "forward-blocked";
-  }
-
-  // Van 1 có đo trực tiếp
-  if (Math.abs(w.iVan1[i]) > 0.05 * Math.max(1, peakAbs(w.idSimulink))) {
-    states[valveLabelsOf(circuit)[0]] = "conducting";
-  } else if (w.uVan1[i] < -1) {
-    states[valveLabelsOf(circuit)[0]] = "reverse-blocked";
-  }
-
-  // Các van khác: suy từ milestone gần nhất
-  const nearest = nearestMilestone(circuit, thetaDeg);
-  if (nearest) {
-    for (const label of Object.keys(states)) {
-      if (nearest.activeValves.includes(label)) {
-        states[label] = "conducting";
-      }
-    }
+    states[label] = active.has(label) ? "conducting" : "forward-blocked";
   }
   return states;
 }
 
 function valveLabelsOf(circuit: CircuitSimulationData): string[] {
-  // Suy từ milestones nếu có
-  for (const m of circuit.milestones) {
-    if (m.activeValves.length > 0) {
-      // không đủ tin cậy làm danh sách đầy đủ — chỉ dùng khi cần
-      break;
-    }
-  }
-  // Quy ước theo số pha/loại mạch
   const id = circuit.catalogId;
-  if (id.startsWith("pha3_bridge")) {
-    return ["V1", "V2", "V3", "V4", "V5", "V6"];
-  }
+  if (id === "pha3_bridge_diode") return ["D1", "D2", "D3", "D4", "D5", "D6"];
+  if (id.includes("pha3_bridge_semicontrolled")) return ["V1", "V3", "V5", "D2", "D4", "D6"];
+  if (id.startsWith("pha3_bridge")) return ["V1", "V2", "V3", "V4", "V5", "V6"];
   if (id.startsWith("pha3_tap")) {
-    return ["D1", "D2", "D3"];
+    return id.endsWith("thyristor")
+      ? ["V1", "V2", "V3"]
+      : ["D1", "D2", "D3"];
   }
   if (id.startsWith("pha1_tap")) {
-    return ["D1", "D2"];
+    return id.endsWith("thyristor") ? ["V1", "V2"] : ["D1", "D2"];
   }
-  return ["D1", "D2", "D3", "D4"];
-}
-
-function nearestMilestone(circuit: CircuitSimulationData, thetaDeg: number) {
-  let best: CircuitSimulationData["milestones"][number] | null = null;
-  let bestDist = Infinity;
-  for (const m of circuit.milestones) {
-    const d = Math.abs(m.theta - thetaDeg);
-    if (d < bestDist) {
-      bestDist = d;
-      best = m;
-    }
-  }
-  // Chỉ tin cậy trong cửa sổ hẹp quanh mốc — ngoài vùng này van 1
-  // vẫn được suy từ iVan1 đo trực tiếp, các van khác hiển thị khóa
-  return bestDist <= 30 ? best : null;
-}
-
-function peakAbs(arr: number[]): number {
-  let p = 0;
-  for (const v of arr) {
-    const a = Math.abs(v);
-    if (a > p) p = a;
-  }
-  return p;
+  if (id.includes("pha1_bridge_semicontrolled")) return ["V1", "V3", "D2", "D4"];
+  return id.includes("diode") ? ["D1", "D2", "D3", "D4"] : ["V1", "V2", "V3", "V4"];
 }
 
 export type { ValveState };

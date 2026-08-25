@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useMemo, useCallback } from "react";
 import type { CircuitMilestone, CircuitWaveforms, WaveLayerVisibility } from "@/types/simulator";
+import type { AnalyticExtras, ValveCurrentSample } from "@/lib/analyticWaveforms";
 
 interface MultiChannelCanvasProps {
   waveforms: CircuitWaveforms | null;
@@ -9,6 +10,7 @@ interface MultiChannelCanvasProps {
   layers: WaveLayerVisibility;
   milestones?: CircuitMilestone[];
   isThreePhase?: boolean;
+  extras?: AnalyticExtras | null;
   className?: string;
 }
 
@@ -18,6 +20,7 @@ export function MultiChannelCanvas({
   layers,
   milestones,
   isThreePhase = false,
+  extras = null,
   className = "",
 }: MultiChannelCanvasProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,7 +40,7 @@ export function MultiChannelCanvas({
   interface TraceDef {
     key: string;
     color: string;
-    dataKey: keyof CircuitWaveforms;
+    dataKey: keyof CircuitWaveforms | "custom";
     visible: boolean;
     isDigital?: boolean;
     lineWidth: number;
@@ -46,17 +49,32 @@ export function MultiChannelCanvas({
     alpha?: number;
     /** dịch pha sóng [độ] — dùng cho ub (+120°), uc (+240°) */
     shiftDeg?: number;
+    /** dữ liệu giải tích tự tính (φE/φF, i_MBA) — ưu tiên hơn dataKey */
+    custom?: number[];
+  }
+  interface ValveRowSet {
+    labels: string[];
+    cells: ValveCurrentSample[][];
+  }
+  interface GateRowSet {
+    labels: string[];
+    pulses: number[][];
   }
   interface LaneDef {
     label: string;
+    kind?: "wave" | "valveRows" | "gateRows";
     traces: TraceDef[];
+    valveRows?: ValveRowSet;
+    gateRows?: GateRowSet;
   }
+
+  const ROW_PALETTE = ["#34d399", "#60a5fa", "#fbbf24", "#f472b6", "#a78bfa", "#38bdf8"];
 
   const lanes = useMemo<LaneDef[]>(() => {
     const mkTrace = (
       key: string,
       color: string,
-      dataKey: keyof CircuitWaveforms,
+      dataKey: keyof CircuitWaveforms | "custom",
       visible: boolean,
       opts?: Partial<TraceDef>
     ): TraceDef => ({
@@ -68,9 +86,11 @@ export function MultiChannelCanvas({
       dash: [],
       ...opts,
     });
-    return [
+    const hasValveRows = !!extras && extras.valveLabels.length > 0;
+    const hasGates = !!extras && extras.gateLabels.length > 0;
+    const list: LaneDef[] = [
       {
-        label: "CH1 · UA — ĐIỆN ÁP NGUỒN [V]",
+        label: "CH1 · NGUỒN" + (isThreePhase ? " UA UB UC" : " U2") + " [V]",
         traces: [
           ...(isThreePhase
             ? [
@@ -79,6 +99,22 @@ export function MultiChannelCanvas({
               ]
             : []),
           mkTrace("ua", "#8b93a7", "uSource", true),
+          ...(extras?.phiE
+            ? [
+                mkTrace("phiE", "#22d3ee", "custom", true, {
+                  custom: extras.phiE,
+                  lineWidth: 1,
+                  dash: [5, 4],
+                  alpha: 0.75,
+                }),
+                mkTrace("phiF", "#fb7185", "custom", true, {
+                  custom: extras.phiF ?? [],
+                  lineWidth: 1,
+                  dash: [5, 4],
+                  alpha: 0.75,
+                }),
+              ]
+            : []),
         ],
       },
       {
@@ -105,17 +141,42 @@ export function MultiChannelCanvas({
         label: "CH5 · IT — DÒNG QUA VAN 1 [A]",
         traces: [mkTrace("ivan", "#60a5fa", "iVan1", layers.iVan1)],
       },
-      {
-        label: "CH6 · GATE — XÚNG KÍCH VAN 1 [–]",
+      hasGates
+        ? {
+            label: "CH6 · GATE X₁…Xₙ" + (isThreePhase ? " (XUNG KÉP 60°)" : "") + " [–]",
+            kind: "gateRows",
+            traces: [],
+            gateRows: { labels: extras!.gateLabels, pulses: extras!.gates },
+          }
+        : {
+            label: "CH6 · GATE — XÚNG KÍCH VAN 1 [–]",
+            traces: [
+              mkTrace("gate", "var(--sig-gate)", "gatePulses", layers.gatePulses, {
+                isDigital: true,
+                lineWidth: 2,
+              }),
+            ],
+          },
+    ];
+    if (hasValveRows) {
+      list.splice(5, 0, {
+        label: "CH5b · I QUA TỪNG VAN — 120°/180° (gạch = freewheel)",
+        kind: "valveRows",
+        traces: [],
+        valveRows: { labels: extras!.valveLabels, cells: extras!.valveCurrents },
+      });
+      list.push({
+        label: (isThreePhase ? "CH7 · IA = IV1 − IV4" : "CH7 · I2") + " — DÒNG PHA MBA [–]",
         traces: [
-          mkTrace("gate", "var(--sig-gate)", "gatePulses", layers.gatePulses, {
-            isDigital: true,
-            lineWidth: 2,
+          mkTrace("iline", "#c084fc", "custom", true, {
+            custom: extras!.lineCurrent,
+            lineWidth: 1.6,
           }),
         ],
-      },
-    ];
-  }, [layers, isThreePhase]);
+      });
+    }
+    return list;
+  }, [layers, isThreePhase, extras]);
 
   // Compute nice max for auto-scaling
   const getNiceMax = useCallback((data: number[]): number => {
@@ -138,8 +199,9 @@ export function MultiChannelCanvas({
 
   const getTraceData = useCallback(
     (trace: TraceDef, wf: CircuitWaveforms | null): number[] => {
+      if (trace.custom && trace.custom.length > 0) return trace.custom;
       if (!wf) return [];
-      const base = wf[trace.dataKey] as number[] | undefined;
+      const base = wf[trace.dataKey as keyof CircuitWaveforms] as number[] | undefined;
       if (!base || base.length === 0) return [];
       if (!trace.shiftDeg) return base;
       const theta = wf.thetaDeg;
@@ -256,6 +318,119 @@ export function MultiChannelCanvas({
       ctx.textBaseline = "middle";
       ctx.fillText(lane.label, LEFT_PADDING + 4, headerY + HEADER_HEIGHT / 2);
 
+      if (lane.kind === "valveRows" && lane.valveRows) {
+        const { labels, cells } = lane.valveRows;
+        const n = Math.max(1, labels.length);
+        const rowH = CHANNEL_HEIGHT / n;
+        labels.forEach((lbl, ri) => {
+          const rTop = contentTop + ri * rowH;
+          const rCy = rTop + rowH / 2;
+          if (ri > 0) {
+            ctx.beginPath();
+            ctx.moveTo(plotLeft, rTop);
+            ctx.lineTo(plotRight, rTop);
+            ctx.strokeStyle = gridMajorColor;
+            ctx.lineWidth = 0.5;
+            ctx.globalAlpha = 0.4;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+          }
+          ctx.fillStyle = ROW_PALETTE[ri % ROW_PALETTE.length];
+          ctx.font = "10px monospace";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(lbl, plotLeft + 4, rCy);
+
+          const samples = cells[ri] ?? [];
+          const blkH = rowH * 0.62;
+          let runStart = -1;
+          let runFw = false;
+          const flush = (endIdxExclusive: number) => {
+            if (runStart < 0) return;
+            const d0 = extras?.thetaDeg[runStart] ?? runStart;
+            const d1 = endIdxExclusive >= samples.length ? 720 : extras?.thetaDeg[endIdxExclusive] ?? endIdxExclusive;
+            const x0 = plotLeft + (d0 / 720) * plotWidth;
+            const x1 = plotLeft + (d1 / 720) * plotWidth;
+            if (x1 - x0 < 0.5) {
+              runStart = -1;
+              return;
+            }
+            if (runFw) {
+              ctx.setLineDash([3, 3]);
+              ctx.strokeStyle = ROW_PALETTE[ri % ROW_PALETTE.length];
+              ctx.lineWidth = 1.2;
+              ctx.strokeRect(x0, rCy - blkH / 2, x1 - x0, blkH);
+              ctx.setLineDash([]);
+              ctx.fillStyle = ROW_PALETTE[ri % ROW_PALETTE.length];
+              ctx.globalAlpha = 0.14;
+              ctx.fillRect(x0, rCy - blkH / 2, x1 - x0, blkH);
+              ctx.globalAlpha = 1;
+            } else {
+              ctx.fillStyle = ROW_PALETTE[ri % ROW_PALETTE.length];
+              ctx.fillRect(x0, rCy - blkH / 2, x1 - x0, blkH);
+            }
+            runStart = -1;
+          };
+          samples.forEach((s, si) => {
+            if (s.on) {
+              if (runStart < 0) {
+                runStart = si;
+                runFw = s.fw;
+              }
+            } else flush(si);
+          });
+          flush(samples.length);
+        });
+        return;
+      }
+
+      if (lane.kind === "gateRows" && lane.gateRows) {
+        const { labels, pulses } = lane.gateRows;
+        const n = Math.max(1, labels.length);
+        const rowH = CHANNEL_HEIGHT / n;
+        const gateCol = getColor("var(--sig-gate)");
+        labels.forEach((lbl, ri) => {
+          const rTop = contentTop + ri * rowH;
+          const hiY = rTop + rowH * 0.24;
+          const loY = rTop + rowH * 0.82;
+          if (ri > 0) {
+            ctx.beginPath();
+            ctx.moveTo(plotLeft, rTop);
+            ctx.lineTo(plotRight, rTop);
+            ctx.strokeStyle = gridMajorColor;
+            ctx.lineWidth = 0.5;
+            ctx.globalAlpha = 0.4;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+          }
+          ctx.fillStyle = gateCol;
+          ctx.font = "10px monospace";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(`X${lbl.replace(/^V/, "")}`, plotLeft + 4, rTop + rowH * 0.52);
+
+          const seq = pulses[ri] ?? [];
+          ctx.beginPath();
+          ctx.strokeStyle = gateCol;
+          ctx.lineWidth = 1.4;
+          let curY = loY;
+          ctx.moveTo(plotLeft, loY);
+          for (let si = 0; si < seq.length; si++) {
+            const d = extras?.thetaDeg[si] ?? si;
+            const x = plotLeft + (d / 720) * plotWidth;
+            const y = seq[si] === 1 ? hiY : loY;
+            if (y !== curY) {
+              ctx.lineTo(x, curY);
+              ctx.lineTo(x, y);
+              curY = y;
+            }
+          }
+          ctx.lineTo(plotRight, curY);
+          ctx.stroke();
+        });
+        return;
+      }
+
       if (visibleTraces.length === 0) {
         ctx.fillStyle = "rgba(255,255,255,0.02)";
         ctx.fillRect(plotLeft, contentTop, plotWidth, CHANNEL_HEIGHT);
@@ -278,7 +453,9 @@ export function MultiChannelCanvas({
       ctx.globalAlpha = 1;
       ctx.setLineDash([]);
 
-      if (visibleTraces.length === 0 || !waveforms) return;
+      if (visibleTraces.length === 0) return;
+      const needsWaveforms = visibleTraces.some((t) => !(t.custom && t.custom.length > 0));
+      if (needsWaveforms && !waveforms) return;
 
       // Thang đo chung cho mọi trace trong lane (trừ digital gate: thang cố định 0..1)
       const isDigitalLane = visibleTraces.some((t) => t.isDigital);
@@ -301,14 +478,21 @@ export function MultiChannelCanvas({
         if (trace.dash.length > 0) ctx.setLineDash(trace.dash);
 
         for (let i = 0; i < data.length; i++) {
-          const deg = waveforms.thetaDeg[i] ?? i;
+          const deg =
+            (trace.custom && trace.custom.length > 0
+              ? extras?.thetaDeg[i]
+              : waveforms?.thetaDeg[i]) ?? i;
           const x = plotLeft + (deg / 720) * plotWidth;
           const y = centerY - data[i] * scale;
 
           if (i === 0) {
             ctx.moveTo(x, y);
           } else if (trace.isDigital) {
-            const prevDeg = waveforms.thetaDeg[i - 1] ?? i - 1;
+            const prevDeg =
+              (trace.custom && trace.custom.length > 0
+                ? extras?.thetaDeg[i - 1]
+                : waveforms?.thetaDeg[i - 1]) ??
+              i - 1;
             ctx.lineTo(plotLeft + (prevDeg / 720) * plotWidth, y);
             ctx.lineTo(x, y);
           } else {
@@ -381,9 +565,9 @@ export function MultiChannelCanvas({
     const chipWidth = textMetrics.width + chipPaddingX * 2;
     const chipHeight = 18;
     let chipX = scrubX + 10;
-    // Flip to left if near right edge
-    if (chipX + chipWidth > plotRight - 4) {
+    if (chipX + chipWidth > plotRight - 4 || chipX < plotLeft + chipWidth + 16) {
       chipX = scrubX - chipWidth - 10;
+      if (chipX < plotLeft + 4) chipX = plotLeft + 4;
     }
     const chipY = TOP_PADDING + 8;
 
@@ -421,7 +605,7 @@ export function MultiChannelCanvas({
       ctx.textBaseline = "middle";
       ctx.fillText("Không có dữ liệu dạng sóng", cssWidth / 2, cssHeight / 2);
     }
-  }, [waveforms, thetaDeg, milestones, lanes, dpr, canvasHeight, getNiceMax, getTraceData]);
+  }, [waveforms, thetaDeg, milestones, lanes, extras, dpr, canvasHeight, getNiceMax, getTraceData]);
 
   // ResizeObserver setup
   useEffect(() => {
@@ -454,6 +638,8 @@ export function MultiChannelCanvas({
     () => [
       { label: "Lý thuyết", color: "var(--sig-theory)", dash: [6, 4] },
       { label: "Simulink", color: "var(--sig-sim)", dash: [] },
+      { label: "Bao φ_E / φ_F", color: "#22d3ee", dash: [5, 4] },
+      { label: "Freewheeling", color: "var(--sig-on)", dash: [3, 3] },
       { label: "Vạch quét θ", color: "var(--sig-scrub)", dash: [] },
     ],
     []

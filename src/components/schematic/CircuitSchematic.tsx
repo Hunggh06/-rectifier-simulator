@@ -39,11 +39,20 @@ function stateColor(state: ValveState | undefined): string {
 }
 
 function Wire({ d }: { d: string }) {
-  return <path d={d} fill="none" stroke={WIRE} strokeWidth={1.5} strokeLinecap="round" />;
+  return (
+    <path
+      d={d}
+      fill="none"
+      stroke={WIRE}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      vectorEffect="non-scaling-stroke"
+    />
+  );
 }
 
 function JunctionDot({ x, y }: { x: number; y: number }) {
-  return <circle cx={x} cy={y} r={2.6} fill={WIRE} />;
+  return <circle cx={x} cy={y} r={3} fill={WIRE} />;
 }
 
 function Txt({
@@ -94,21 +103,22 @@ function ValveSymbol({
   return (
     <g>
       <g transform={`translate(${v.x},${v.y}) rotate(${flip})`}>
-        <line x1={0} y1={-22} x2={0} y2={-9} stroke={color} strokeWidth={1.8} />
+        <line x1={0} y1={-22} x2={0} y2={-9} stroke={color} strokeWidth={1.8} vectorEffect="non-scaling-stroke" />
         <polygon
           points="-9,-9 9,-9 0,8"
           fill={color}
           fillOpacity={conducting ? 0.45 : 0.18}
           stroke={color}
           strokeWidth={1.8}
+          vectorEffect="non-scaling-stroke"
           filter={conducting ? `url(#${glowId})` : undefined}
         />
-        <line x1={-9} y1={9} x2={9} y2={9} stroke={color} strokeWidth={2.2} />
-        <line x1={0} y1={9} x2={0} y2={22} stroke={color} strokeWidth={1.8} />
+        <line x1={-9} y1={9} x2={9} y2={9} stroke={color} strokeWidth={2.2} vectorEffect="non-scaling-stroke" />
+        <line x1={0} y1={9} x2={0} y2={22} stroke={color} strokeWidth={1.8} vectorEffect="non-scaling-stroke" />
         {v.kind === "thyristor" && (
           <g className={conducting ? "cs-gate-blink" : undefined}>
-            <line x1={7} y1={9} x2={15} y2={15} stroke={color} strokeWidth={1.4} />
-            <line x1={12} y1={18} x2={18} y2={12} stroke={color} strokeWidth={1.6} />
+            <line x1={7} y1={9} x2={15} y2={15} stroke={color} strokeWidth={1.4} vectorEffect="non-scaling-stroke" />
+            <line x1={12} y1={18} x2={18} y2={12} stroke={color} strokeWidth={1.6} vectorEffect="non-scaling-stroke" />
           </g>
         )}
       </g>
@@ -459,6 +469,7 @@ function buildBridge3P(
         ))}
         <Wire d="M 146 145 V 265" />
         <Wire d="M 146 205 H 122" />
+        <Wire d="M 380 190 H 540" />
         <Txt x={116} y={198} anchor="middle">N</Txt>
         {legs.map((lg) => (
           <g key={`mid-${lg.ph}`}>
@@ -589,7 +600,13 @@ export function CircuitSchematic({
           θ = {Math.round(thetaDeg)}°
         </span>
       </div>
-      <svg viewBox="0 0 700 400" className="h-auto w-full" role="img" aria-label={entry.circuitName}>
+      <svg
+        viewBox="0 0 700 400"
+        className="h-auto w-full"
+        shapeRendering="geometricPrecision"
+        role="img"
+        aria-label={entry.circuitName}
+      >
         <style>{SVG_CSS}</style>
         <defs>
           <filter id={`${uid}-glow`} x="-60%" y="-60%" width="220%" height="220%">

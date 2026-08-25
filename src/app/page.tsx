@@ -35,6 +35,7 @@ import {
   useAvailableAlphas,
   useSimulatorStore,
 } from "@/store/useSimulatorStore";
+import { buildAnalyticExtras } from "@/lib/analyticWaveforms";
 import { CircuitSchematic } from "@/components/schematic/CircuitSchematic";
 import { MultiChannelCanvas } from "@/components/oscilloscope/MultiChannelCanvas";
 import { MilestoneExplanation } from "@/components/pedagogical/MilestoneExplanation";
@@ -70,6 +71,7 @@ export default function Home() {
   const toggleLayer = useSimulatorStore((s) => s.toggleLayer);
   const jumpToMilestone = useSimulatorStore((s) => s.jumpToMilestone);
   const dismissMilestonePause = useSimulatorStore((s) => s.dismissMilestonePause);
+  const togglePauseAtMilestone = useSimulatorStore((s) => s.togglePauseAtMilestone);
 
   const activeCircuit = useActiveCircuit();
   const activeEntry = useActiveCatalogEntry();
@@ -82,10 +84,12 @@ export default function Home() {
     const cat = q.get("catalog");
     const alpha = q.get("alpha");
     const load = q.get("load");
+    const theta = q.get("theta");
     if (cat) selectCatalog(cat);
     if (load === "R" || load === "RL") selectLoadType(load);
     if (alpha !== null && !Number.isNaN(Number(alpha))) selectAlpha(Number(alpha));
-  }, [selectCatalog, selectLoadType, selectAlpha]);
+    if (theta !== null && !Number.isNaN(Number(theta))) setTheta(Number(theta));
+  }, [selectCatalog, selectLoadType, selectAlpha, setTheta]);
   useEffect(() => {
     if (hydrated.current) return;
     hydrated.current = true;
@@ -127,6 +131,10 @@ export default function Home() {
   const playingRef = useRef(isPlaying);
   playingRef.current = isPlaying;
 
+  const pauseAtMilestones = useSimulatorStore((s) => s.pauseAtMilestones);
+  const pauseAtMilestonesRef = useRef(pauseAtMilestones);
+  pauseAtMilestonesRef.current = pauseAtMilestones;
+
   useEffect(() => {
     if (!isPlaying || !activeCircuit) return;
     let raf = 0;
@@ -134,20 +142,21 @@ export default function Home() {
     const step = (now: number) => {
       const dt = Math.min(now - last, 64);
       last = now;
-      const next = thetaRef.current + (playSpeed * dt * 60) / 1000;
-      // Tự dừng tại mốc chuyển mạch nếu vươn qua trong bước này
-      const hit = milestones.find((m) => {
-        const a = thetaRef.current;
-        let b = next % 720;
-        if (b < a) {
-          return m.theta >= a || m.theta <= b;
+      const a = ((thetaRef.current % 720) + 720) % 720;
+      let next = a + (playSpeed * dt * 60) / 1000;
+      if (next >= 720) next -= 720;
+
+      if (pauseAtMilestonesRef.current && milestones.length > 0) {
+        const b = next;
+        const hit = milestones.find((m) => {
+          const mt = ((m.theta % 720) + 720) % 720;
+          return b >= a ? mt > a && mt <= b : mt > a || mt <= b;
+        });
+        if (hit !== undefined) {
+          setTheta(((hit.theta % 720) + 720) % 720);
+          useSimulatorStore.setState({ isPlaying: false, pausedAtMilestoneTheta: hit.theta });
+          return;
         }
-        return m.theta > a && m.theta <= b;
-      });
-      if (hit !== undefined && milestones.length > 0) {
-        setTheta(hit.theta);
-        useSimulatorStore.setState({ isPlaying: false, pausedAtMilestoneTheta: hit.theta });
-        return;
       }
       setTheta(next);
       raf = requestAnimationFrame(step);
@@ -156,6 +165,20 @@ export default function Home() {
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, playSpeed, activeCircuit?.circuitId]);
+
+  /* --------------- Dữ liệu giải tích cho các lane mới ------------------- */
+  const extras = useMemo(
+    () =>
+      activeEntry
+        ? buildAnalyticExtras(
+            activeEntry.catalogId,
+            selectedAlphaDeg,
+            selectedLoadType,
+            activeEntry.controlled
+          )
+        : null,
+    [activeEntry, selectedAlphaDeg, selectedLoadType]
+  );
 
   /* ----------------------------- Bàn phím ------------------------------- */
   useEffect(() => {
@@ -339,6 +362,19 @@ export default function Home() {
                   {isPlaying ? <Pause size={13} aria-hidden /> : <Play size={13} aria-hidden />}
                   {isPlaying ? "Dừng" : "Quét"}
                 </button>
+                <button
+                  type="button"
+                  onClick={togglePauseAtMilestone}
+                  aria-pressed={pauseAtMilestones}
+                  title="Khi bật: quét sẽ tạm dừng giải thích tại từng mốc chuyển mạch"
+                  className={`rounded-md border px-2 py-1.5 font-mono text-[11px] transition-colors ${
+                    pauseAtMilestones
+                      ? "border-sig-gate/50 bg-sig-gate/10 text-sig-gate"
+                      : "border-line text-ink-3 hover:text-ink-2"
+                  }`}
+                >
+                  ⏸ tại mốc
+                </button>
                 <div className="ml-auto flex overflow-hidden rounded-md border border-line">
                   {SPEED_OPTIONS.map((s) => (
                     <button
@@ -435,6 +471,7 @@ export default function Home() {
               layers={layers}
               milestones={milestones}
               isThreePhase={activeEntry?.family === "3P"}
+              extras={extras}
               className="p-2 pt-1"
             />
 
