@@ -42,8 +42,9 @@ interface SimulatorState {
   pausedAtMilestoneTheta: number | null;
   pauseAtMilestones: boolean;
 
-  /* Lớp sóng hiển thị */
   layers: WaveLayerVisibility;
+  selectedObservedValve: string | null;
+  timeSpan: "1T" | "2T";
 
   /* Hành động */
   loadDataset: (dataset: {
@@ -53,6 +54,9 @@ interface SimulatorState {
   selectCatalog: (catalogId: string) => void;
   selectAlpha: (alphaDeg: number) => void;
   selectLoadType: (loadType: "R" | "RL") => void;
+  selectObservedValve: (valve: string | null) => void;
+  setTimeSpan: (span: "1T" | "2T") => void;
+  toggleTimeSpan: () => void;
   setTheta: (thetaDeg: number) => void;
   nudgeTheta: (deltaDeg: number) => void;
   play: () => void;
@@ -117,6 +121,8 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => ({
   pauseAtMilestones: false,
 
   layers: { ...DEFAULT_LAYERS },
+  selectedObservedValve: null,
+  timeSpan: "1T",
 
   loadDataset: ({ catalog, circuits }) => {
     const first = catalog[0]?.catalogId ?? null;
@@ -136,6 +142,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => ({
       selectedCatalogId: first,
       selectedAlphaDeg: alpha,
       selectedLoadType: load,
+      selectedObservedValve: null,
       thetaDeg: 0,
       isPlaying: false,
       pausedAtMilestoneTheta: null,
@@ -149,6 +156,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => ({
       selectedCatalogId: catalogId,
       selectedAlphaDeg: firstForCatalog?.alphaDeg ?? 0,
       selectedLoadType: firstForCatalog?.loadType ?? "R",
+      selectedObservedValve: null,
       thetaDeg: 0,
       pausedAtMilestoneTheta: null,
       isPlaying: false,
@@ -175,6 +183,10 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => ({
       pausedAtMilestoneTheta: null,
     });
   },
+
+  selectObservedValve: (valve) => set({ selectedObservedValve: valve }),
+  setTimeSpan: (span) => set({ timeSpan: span }),
+  toggleTimeSpan: () => set((s) => ({ timeSpan: s.timeSpan === "1T" ? "2T" : "1T" })),
 
   setTheta: (thetaDeg) => {
     const wrapped = ((thetaDeg % 720) + 720) % 720;

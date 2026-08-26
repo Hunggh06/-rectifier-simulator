@@ -1,34 +1,41 @@
-/**
- * analyticWaveforms — sinh dạng sóng giảng dạy GIẢI TÍCH trên lưới θ 0..720°,
- * không phụ thuộc dataset (dùng được cho cả mock và dữ liệu Simulink thật).
- * Khớp quy ước generator: ua = sinθ, ub = sin(θ−120°), uc = sin(θ−240°).
- */
-
 import { analyticConduction } from "@/store/useSimulatorStore";
 
 export interface ValveCurrentSample {
-  /** van đang dẫn dòng tải */
   on: boolean;
-  /** đoạn dẫn dòng xả tự do freewheeling (vẽ nét gạch) */
   fw: boolean;
-  /** biên độ tức thời chuẩn hoá 0..1: tải R theo hình ud, tải RL ≈ phẳng */
   amp: number;
+}
+
+export interface NaturalIntersection {
+  theta: number;
+  label: string;
+  fromPhase: string;
+  toPhase: string;
+}
+
+export interface AlphaPoint {
+  startDeg: number;
+  endDeg: number;
+  valve: string;
 }
 
 export interface AnalyticExtras {
   thetaDeg: number[];
-  /** nhãn các van theo thứ tự hàng hiển thị */
   valveLabels: string[];
-  /** i qua từng van, chuẩn hoá 0..1 */
+  selectedValve: string;
+  uSelectedValve: number[];
+  iSelectedValve: number[];
+  uSourceA: number[];
+  uSourceB: number[];
+  uSourceC: number[];
+  conductingPhase: Array<"a" | "b" | "c" | null>;
+  naturalIntersections: NaturalIntersection[];
+  alphaPoints: AlphaPoint[];
   valveCurrents: ValveCurrentSample[][];
-  /** dòng pha thứ cấp MBA: 1P = ±1 vuông đối xứng; 3P = i_A = i_V1 − i_V4 */
   lineCurrent: number[];
-  /** cầu 3P: bao cực dương φ_E / cực âm φ_F (điện áp pha) */
   phiE: number[] | null;
   phiF: number[] | null;
-  /** nhãn gate theo van; mảng rỗng với mạch diode */
   gateLabels: string[];
-  /** 0/1 mỗi van; cầu thyristor là xung kép cách 60° */
   gates: number[][];
 }
 
@@ -56,7 +63,6 @@ function valveLabelSet(catalogId: string): string[] {
   return catalogId.includes("diode") ? ["D1", "D3", "D2", "D4"] : ["V1", "V2", "V3", "V4"];
 }
 
-/** Cặp van cùng rail (không tạo điện áp dây) → freewheeling */
 function isFreewheelPair(catalogId: string, active: string[]): boolean {
   const railTop = new Set(["V1", "V3", "V5", "D1", "D3", "D5"]);
   const railBot = new Set(["V4", "V6", "V2", "D4", "D6", "D2"]);
@@ -64,7 +70,6 @@ function isFreewheelPair(catalogId: string, active: string[]): boolean {
   const sameRail =
     (railTop.has(active[0]) && railTop.has(active[1])) ||
     (railBot.has(active[0]) && railBot.has(active[1]));
-  // 1P: freewheel khi cặp nằm cùng nửa mạch tia hoặc cùng phía cầu bán ĐK
   const halfTap = new Set(["D1", "V1"]);
   const halfTap2 = new Set(["D2", "V2"]);
   const semiLeft = new Set(["V1", "D4"]);
@@ -81,25 +86,40 @@ export function buildAnalyticExtras(
   catalogId: string,
   alphaDeg: number,
   loadType: "R" | "RL",
-  controlled: boolean
+  controlled: boolean,
+  observedValve?: string | null
 ): AnalyticExtras {
   const rl = loadType === "RL";
   const thetaDeg: number[] = [];
   for (let t = 0; t < 720; t += 1) thetaDeg.push(t);
 
   const valveLabels = valveLabelSet(catalogId);
+  const selectedValve =
+    observedValve && valveLabels.includes(observedValve)
+      ? observedValve
+      : valveLabels[0] ?? "V1";
+
   const valveCurrents: ValveCurrentSample[][] = valveLabels.map(() => []);
 
   const rad = (d: number) => (d * Math.PI) / 180;
-  const phaseU: Record<string, number> = { a: 0, b: 0, c: 0 };
   const phiE: number[] | null = catalogId.startsWith("pha3_bridge") ? [] : null;
   const phiF: number[] | null = catalogId.startsWith("pha3_bridge") ? [] : null;
   const lineCurrent: number[] = [];
+
+  const uSourceA: number[] = [];
+  const uSourceB: number[] = [];
+  const uSourceC: number[] = [];
+  const uSelectedValve: number[] = [];
+  const iSelectedValve: number[] = [];
+  const conductingPhase: Array<"a" | "b" | "c" | null> = [];
 
   const is3p = catalogId.startsWith("pha3");
   const isBridge = catalogId.startsWith("pha1_bridge") || catalogId.startsWith("pha3_bridge");
   const topPhaseOf: Record<string, string> = { V1: "a", V3: "b", V5: "c", D1: "a", D3: "b", D5: "c" };
   const botPhaseOf: Record<string, string> = { V4: "a", V6: "b", V2: "c", D4: "a", D6: "b", D2: "c" };
+
+  const peakVoltage = Math.SQRT2 * 100;
+  const rLoad = 10;
 
   for (const th of thetaDeg) {
     const active = analyticConduction(catalogId, alphaDeg, loadType, th);
@@ -107,12 +127,27 @@ export function buildAnalyticExtras(
     const fw = isFreewheelPair(catalogId, active);
 
     const p = mod360(th);
-    phaseU.a = Math.sin(rad(p));
-    phaseU.b = Math.sin(rad(p - 120));
-    phaseU.c = Math.sin(rad(p - 240));
+    const ua = peakVoltage * Math.sin(rad(p));
+    const ub = peakVoltage * Math.sin(rad(p - 120));
+    const uc = peakVoltage * Math.sin(rad(p - 240));
 
-    // Biên độ dòng tải chuẩn hoá: RL (L lớn) ≈ hằng số; R theo hình ud
+    uSourceA.push(ua);
+    uSourceB.push(ub);
+    uSourceC.push(uc);
+
+    const phaseU = { a: Math.sin(rad(p)), b: Math.sin(rad(p - 120)), c: Math.sin(rad(p - 240)) };
+
+    let cPhase: "a" | "b" | "c" | null = null;
+    if (is3p) {
+      if (actSet.has("V1") || actSet.has("D1") || actSet.has("T1")) cPhase = "a";
+      else if (actSet.has("V2") || actSet.has("D2") || actSet.has("T2")) cPhase = "b";
+      else if (actSet.has("V3") || actSet.has("D3") || actSet.has("T3")) cPhase = "c";
+      else if (actSet.has("V5") || actSet.has("D5")) cPhase = "c";
+    }
+    conductingPhase.push(cPhase);
+
     let ampId: number;
+    let udVolt = 0;
     if (catalogId.startsWith("pha1_half")) {
       const aRad = (alphaDeg * Math.PI) / 180;
       const thRad = (p * Math.PI) / 180;
@@ -121,13 +156,29 @@ export function buildAnalyticExtras(
       if (rl) {
         const cur = Math.sin(thRad - phiRad) - Math.sin(aRad - phiRad) * Math.exp(-((p - alphaDeg) * (Math.PI / 180)) / wTau);
         ampId = Math.max(cur, 0);
+        udVolt = actSet.has("V1") || actSet.has("D1") ? ua : 0;
       } else {
         ampId = Math.max(phaseU.a, 0);
+        udVolt = actSet.has("V1") || actSet.has("D1") ? Math.max(ua, 0) : 0;
       }
+    } else if (catalogId.startsWith("pha3_tap")) {
+      if (cPhase === "a") udVolt = ua;
+      else if (cPhase === "b") udVolt = ub;
+      else if (cPhase === "c") udVolt = uc;
+      else udVolt = 0;
+      ampId = rl ? 1 : Math.max(udVolt / peakVoltage, 0);
     } else if (rl) {
       ampId = 1;
+      if (isBridge && is3p) {
+        const tp = topPhaseOf[active[0] ?? ""];
+        const bp = botPhaseOf[active[1] ?? ""];
+        const uPos = tp === "a" ? ua : tp === "b" ? ub : tp === "c" ? uc : 0;
+        const uNeg = bp === "a" ? ua : bp === "b" ? ub : bp === "c" ? uc : 0;
+        udVolt = uPos - uNeg;
+      }
     } else if (!is3p) {
       ampId = Math.abs(phaseU.a);
+      udVolt = Math.abs(ua);
     } else if (!isBridge) {
       ampId = Math.max(phaseU.a, phaseU.b, phaseU.c);
     } else {
@@ -135,6 +186,9 @@ export function buildAnalyticExtras(
       const bp = botPhaseOf[active[1] ?? ""];
       const udPu = tp && bp ? phaseU[tp as "a" | "b" | "c"] - phaseU[bp as "a" | "b" | "c"] : 0;
       ampId = Math.min(Math.max(udPu / Math.sqrt(3), 0), 1);
+      const uPos = tp === "a" ? ua : tp === "b" ? ub : tp === "c" ? uc : 0;
+      const uNeg = bp === "a" ? ua : bp === "b" ? ub : bp === "c" ? uc : 0;
+      udVolt = uPos - uNeg;
     }
 
     valveLabels.forEach((lbl, vi) => {
@@ -142,18 +196,89 @@ export function buildAnalyticExtras(
       valveCurrents[vi].push({ on, fw: fw && on, amp: on ? ampId : 0 });
     });
 
-    if (phiE && phiF) {
-      const peak = Math.SQRT2 * 100;
-      phiE.push(peak * Math.max(phaseU.a, phaseU.b, phaseU.c));
-      phiF.push(peak * Math.min(phaseU.a, phaseU.b, phaseU.c));
+    let uVal = 0;
+    let iVal = 0;
+    const isSelectedConducting = actSet.has(selectedValve);
+
+    if (catalogId.startsWith("pha3_tap")) {
+      const isV1 = selectedValve === "V1" || selectedValve === "D1" || selectedValve === "T1";
+      const isV2 = selectedValve === "V2" || selectedValve === "D2" || selectedValve === "T2";
+      const isV3 = selectedValve === "V3" || selectedValve === "D3" || selectedValve === "T3";
+      const uPhase = isV1 ? ua : isV2 ? ub : isV3 ? uc : ua;
+
+      if (isSelectedConducting) {
+        uVal = 0;
+        iVal = udVolt / rLoad;
+      } else {
+        uVal = uPhase - udVolt;
+        iVal = 0;
+      }
+    } else if (catalogId.startsWith("pha1_tap")) {
+      const isV1 = selectedValve === "V1" || selectedValve === "D1";
+      if (isSelectedConducting) {
+        uVal = 0;
+        iVal = Math.max(Math.abs(ua) / rLoad, 0);
+      } else {
+        uVal = isV1 ? -2 * Math.abs(ua) : 2 * Math.abs(ua);
+        iVal = 0;
+      }
+    } else if (catalogId.startsWith("pha1_half")) {
+      if (isSelectedConducting) {
+        uVal = 0;
+        iVal = ampId * (peakVoltage / rLoad);
+      } else {
+        uVal = ua;
+        iVal = 0;
+      }
+    } else if (is3p && isBridge) {
+      if (isSelectedConducting) {
+        uVal = 0;
+        iVal = ampId * (peakVoltage / rLoad);
+      } else {
+        const isTop = topPhaseOf[selectedValve] !== undefined;
+        const tp = topPhaseOf[active[0] ?? ""];
+        const bp = botPhaseOf[active[1] ?? ""];
+        const uPha =
+          topPhaseOf[selectedValve] === "a" || botPhaseOf[selectedValve] === "a"
+            ? ua
+            : topPhaseOf[selectedValve] === "b" || botPhaseOf[selectedValve] === "b"
+              ? ub
+              : uc;
+        const uConducting = isTop
+          ? tp === "a"
+            ? ua
+            : tp === "b"
+              ? ub
+              : uc
+          : bp === "a"
+            ? ua
+            : bp === "b"
+              ? ub
+              : uc;
+        uVal = isTop ? uPha - uConducting : uConducting - uPha;
+        iVal = 0;
+      }
+    } else {
+      if (isSelectedConducting) {
+        uVal = 0;
+        iVal = Math.abs(udVolt) / rLoad;
+      } else {
+        uVal = -Math.abs(ua);
+        iVal = 0;
+      }
     }
 
-    // Dòng pha MBA: hiệu dòng van "vào" trừ van "ra" của cùng pha
+    uSelectedValve.push(uVal);
+    iSelectedValve.push(iVal);
+
+    if (phiE && phiF) {
+      phiE.push(peakVoltage * Math.max(phaseU.a, phaseU.b, phaseU.c));
+      phiF.push(peakVoltage * Math.min(phaseU.a, phaseU.b, phaseU.c));
+    }
+
     let iline = 0;
-    if (catalogId === "pha1_half_diode") {
-      iline = actSet.has("D1") ? 1 : 0;
-    } else if (catalogId === "pha1_half_thyristor") {
-      iline = actSet.has("V1") ? 1 : 0;
+    if (catalogId === "pha1_half_diode" || catalogId === "pha1_half_thyristor") {
+      iline = actSet.has("D1") || actSet.has("V1") ? 1 : 0;
     } else if (catalogId === "ac1p_regulator") {
       iline = actSet.has("T1") ? 1 : actSet.has("T2") ? -1 : 0;
     } else if (catalogId === "dcdc_buck" || catalogId === "dcdc_boost") {
@@ -177,10 +302,32 @@ export function buildAnalyticExtras(
       const botA = actSet.has("V4") || actSet.has("D4");
       iline = (topA ? 1 : 0) - (botA ? 1 : 0);
     } else {
-      // tia 3P: pha A = D1/V1 đang dẫn
       iline = actSet.has("V1") || actSet.has("D1") ? 1 : 0;
     }
     lineCurrent.push(iline);
+  }
+
+  const naturalIntersections: NaturalIntersection[] = is3p
+    ? [
+        { theta: 30, label: "π/6 (30°)", fromPhase: "C", toPhase: "A" },
+        { theta: 150, label: "5π/6 (150°)", fromPhase: "A", toPhase: "B" },
+        { theta: 270, label: "3π/2 (270°)", fromPhase: "B", toPhase: "C" },
+        { theta: 390, label: "13π/6 (390°)", fromPhase: "C", toPhase: "A" },
+        { theta: 510, label: "17π/6 (510°)", fromPhase: "A", toPhase: "B" },
+        { theta: 630, label: "7π/2 (630°)", fromPhase: "B", toPhase: "C" },
+      ]
+    : [];
+
+  const alphaPoints: AlphaPoint[] = [];
+  if (controlled && is3p) {
+    alphaPoints.push(
+      { startDeg: 30, endDeg: 30 + alphaDeg, valve: "T1 (V1)" },
+      { startDeg: 150, endDeg: 150 + alphaDeg, valve: "T2 (V2)" },
+      { startDeg: 270, endDeg: 270 + alphaDeg, valve: "T3 (V3)" },
+      { startDeg: 390, endDeg: 390 + alphaDeg, valve: "T1 (V1)" },
+      { startDeg: 510, endDeg: 510 + alphaDeg, valve: "T2 (V2)" },
+      { startDeg: 630, endDeg: 630 + alphaDeg, valve: "T3 (V3)" }
+    );
   }
 
   const gateLabels: string[] = [];
@@ -239,5 +386,23 @@ export function buildAnalyticExtras(
     }
   }
 
-  return { thetaDeg, valveLabels, valveCurrents, lineCurrent, phiE, phiF, gateLabels, gates };
+  return {
+    thetaDeg,
+    valveLabels,
+    selectedValve,
+    uSelectedValve,
+    iSelectedValve,
+    uSourceA,
+    uSourceB,
+    uSourceC,
+    conductingPhase,
+    naturalIntersections,
+    alphaPoints,
+    valveCurrents,
+    lineCurrent,
+    phiE,
+    phiF,
+    gateLabels,
+    gates,
+  };
 }

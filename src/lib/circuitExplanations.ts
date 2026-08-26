@@ -525,68 +525,81 @@ export const CIRCUIT_EXPLANATIONS: Record<string, CircuitExplanationData> = {
       const rl = loadType === "RL";
       let uOutFormula = "";
       if (rl) {
-        uOutFormula = "U_{d\\alpha} = \\frac{3\\sqrt{6}}{2\\pi} U_{ph}\\cos\\alpha = U_{d0}\\cos\\alpha\\; (\\text{tải R-L, liên tục})";
+        uOutFormula = "U_{d\\alpha} = \\frac{3\\sqrt{6}}{2\\pi} U_{2f}\\cos\\alpha = U_{d0}\\cos\\alpha\\; (\\text{tải R-L, liên tục})";
       } else if (a <= 30) {
-        uOutFormula = "U_{d\\alpha} = \\frac{3\\sqrt{6}}{2\\pi} U_{ph}\\cos\\alpha = U_{d0}\\cos\\alpha\\; (\\alpha \\le 30^\\circ,\\; \\text{liên tục})";
+        uOutFormula = "U_{d\\alpha} = \\frac{3\\sqrt{6}}{2\\pi} U_{2f}\\cos\\alpha = U_{d0}\\cos\\alpha\\; (\\alpha \\le 30^\\circ,\\; \\text{liên tục})";
       } else {
-        uOutFormula = "U_{d\\alpha} = \\frac{3\\sqrt{2}U_{ph}}{2\\pi}\\bigl[1 + \\cos(\\alpha+30^\\circ)\\bigr]\\; (\\alpha > 30^\\circ,\\; \\text{gián đoạn})";
+        uOutFormula = "U_{d\\alpha} = \\frac{3\\sqrt{2}U_{2f}}{2\\pi}\\bigl[1 + \\cos(\\alpha+30^\\circ)\\bigr]\\; (\\alpha > 30^\\circ,\\; \\text{gián đoạn})";
       }
       return {
         uOut: uOutFormula,
-        uRevMax: "U_{ng,max} = \\sqrt{6}\\,U_{ph} = 244{,}9\\text{ V}",
+        uRevMax: "U_{ng,\\max} = \\sqrt{6}\\,U_{2f} = \\sqrt{2}\\,U_{2d} = 244{,}9\\text{ V}",
         iValveAvg: "I_{v,tb} = \\frac{I_d}{3}",
         iValveRms: "I_{v,rms} = \\frac{I_d}{\\sqrt{3}}",
         sBa: "S_{ba} = 1{,}35\\,P_d",
         ripple: "f_{g\\text{ợ}n} = 3f = 150\\text{ Hz}",
         special: {
           label: "Ranh giới liên tục / gián đoạn tải R",
-          tex: "\\alpha \\le 30^\\circ:\\; \\text{liên tục};\\quad \\alpha > 30^\\circ:\\; \\text{dòng gián đoạn từng đoạn } 30^\\circ \\to 0",
+          tex: "\\alpha \\le 30^\\circ\\;(\\frac{\\pi}{6}):\\; \\text{liên tục};\\quad \\alpha > 30^\\circ:\\; \\text{gián đoạn từng khoảng } 30^\\circ \\to 0",
         },
       };
     },
     getStages: (alpha, loadType) => {
       const a = alpha;
       const rl = loadType === "RL";
-      const span = rl ? 120 : Math.min(120, 150 - a);
+      const radA = (a * Math.PI) / 180;
       return [
         {
-          id: "tap3p_th1",
+          id: "tap3p_th_k1",
+          startDeg: 0,
+          endDeg: 30 + a,
+          intervalTex: `\\theta \\in \\left[0, \\frac{\\pi}{6} + \\alpha\\right] = [0^\\circ, ${30 + a}^\\circ)`,
+          valves: "T_3",
+          title: "Khoảng 1: Pha c dương nhất, T3 tiếp tục dẫn từ chu kỳ trước",
+          uOutTex: "u_d = u_c = \\sqrt{2}U_{2f}\\sin(\\theta - 240^\\circ)",
+          uValveTex: "u_{T1} = u_{ac} = u_a - u_c < 0\\; (\\text{áp ngược, riêng đoạn } [30^\\circ, 30^\\circ+\\alpha]: u_{T1} > 0)",
+          iLoadTex: rl ? "i_d = I_d,\\quad i_{T3} = I_d,\\; i_{T1} = i_{T2} = 0" : "i_d = \\frac{u_c}{R_d},\\quad i_{T3} = i_d,\\; i_{T1} = 0",
+          physicsExplanation:
+            "Pha c dương nhất, van T3 tiếp tục dẫn từ chu kỳ trước. Vòng kín: uc → T3 → Rd → O. Điện áp ra: ud = uc. Điện áp đặt lên van 1: uT1 = uac = ua − uc < 0 (chịu áp ngược; khi qua điểm 30° thì ua > uc nên uT1 nhô lên áp thuận chờ phát xung kích).",
+        },
+        {
+          id: "tap3p_th_k2",
           startDeg: 30 + a,
-          endDeg: 30 + a + span,
-          intervalTex: `\\theta \\in [${30 + a}^\\circ, ${30 + a + span}^\\circ)`,
-          valves: "V_1",
-          title: `Kích mở V1 tại 30° + α = ${30 + a}°`,
-          uOutTex: "u_d(\\theta) = u_a(\\theta) = \\sqrt{2}U_{ph}\\sin\\theta",
-          uValveTex: "u_{V1} = 0,\\quad u_{V2} = u_b - u_a,\\quad u_{V3} = u_c - u_a",
-          iLoadTex: rl ? "i_d = I_d,\\; i_a = I_d" : "i_d = \\frac{u_a}{R}",
+          endDeg: 150 + a,
+          intervalTex: `\\theta \\in \\left[\\frac{\\pi}{6} + \\alpha, \\frac{5\\pi}{6} + \\alpha\\right] = [${30 + a}^\\circ, ${150 + a}^\\circ)`,
+          valves: "T_1",
+          title: `Khoảng 2: Kích mở T1 tại π/6 + α = ${30 + a}°, dập tắt T3`,
+          uOutTex: "u_d = u_a = \\sqrt{2}U_{2f}\\sin\\theta",
+          uValveTex: "u_{T1} = 0\\text{ V}\\; (\\text{do van } T_1 \\text{ đang thông})",
+          iLoadTex: rl ? "i_d = I_d,\\quad i_{T1} = I_d,\\; i_{T2} = i_{T3} = 0" : "i_d = \\frac{u_a}{R_d},\\quad i_{T1} = i_d,\\; i_{T2} = 0",
           physicsExplanation:
-            `Sau điểm giao tự nhiên 30°, V1 chờ góc chậm α mới nhận xung kích. V1 mở nối ua ra tải. Dẫn trong khoảng ${span}° cho tới khi xung kích tiếp theo đưa tới V2 (hoặc dòng tắt về 0 khi tải R với α > 30°).`,
+            "Pha a dương nhất. Tại θ = π/6 + α: Bắn xung kích mở T1, dập tắt T3 (chuyển mạch tự nhiên sang T1). Vòng kín: ua → T1 → Rd → O. Điện áp ra: ud = ua. Điện áp đặt lên van 1: uT1 = 0V (do van đang thông).",
         },
         {
-          id: "tap3p_th2",
+          id: "tap3p_th_k3",
           startDeg: 150 + a,
-          endDeg: 150 + a + span,
-          intervalTex: `\\theta \\in [${150 + a}^\\circ, ${150 + a + span}^\\circ)`,
-          valves: "V_2",
-          title: `Kích mở V2 tại 150° + α = ${150 + a}°`,
-          uOutTex: "u_d(\\theta) = u_b(\\theta) = \\sqrt{2}U_{ph}\\sin(\\theta - 120^\\circ)",
-          uValveTex: "u_{V2} = 0,\\quad u_{V1} = u_a - u_b",
-          iLoadTex: "i_d > 0,\\; i_b = i_d",
+          endDeg: 270 + a,
+          intervalTex: `\\theta \\in \\left[\\frac{5\\pi}{6} + \\alpha, \\frac{3\\pi}{2} + \\alpha\\right] = [${150 + a}^\\circ, ${270 + a}^\\circ)`,
+          valves: "T_2",
+          title: `Khoảng 3: Kích mở T2 tại 5π/6 + α = ${150 + a}°, dập tắt T1`,
+          uOutTex: "u_d = u_b = \\sqrt{2}U_{2f}\\sin(\\theta - 120^\\circ)",
+          uValveTex: "u_{T1} = u_{ab} = u_a - u_b < 0\\; (\\text{chịu mẩu điện áp dây âm } u_{ab})",
+          iLoadTex: rl ? "i_d = I_d,\\quad i_{T2} = I_d,\\; i_{T1} = 0" : "i_d = \\frac{u_b}{R_d},\\quad i_{T2} = i_d,\\; i_{T1} = 0",
           physicsExplanation:
-            "Xung kích Ig2 mở V2. Chuyển mạch cưỡng bức diễn ra: ub áp lên Cathode V1 phân cực ngược V1 tắt, V2 dẫn dòng pha B suốt khoảng tiếp theo.",
+            "Pha b dương nhất. Tại θ = 5π/6 + α: Kích mở T2, ub đặt lên Cathode T1 dập tắt T1. Vòng kín: ub → T2 → Rd → O. Điện áp ra: ud = ub. Điện áp đặt lên van 1: uT1 = uab = ua − ub < 0 (chịu mẩu điện áp dây âm uab).",
         },
         {
-          id: "tap3p_th3",
+          id: "tap3p_th_k4",
           startDeg: 270 + a,
-          endDeg: 270 + a + span,
-          intervalTex: `\\theta \\in [${270 + a}^\\circ, ${270 + a + span}^\\circ)`,
-          valves: "V_3",
-          title: `Kích mở V3 tại 270° + α = ${270 + a}°`,
-          uOutTex: "u_d(\\theta) = u_c(\\theta) = \\sqrt{2}U_{ph}\\sin(\\theta - 240^\\circ)",
-          uValveTex: "u_{V3} = 0,\\quad u_{V2} = u_b - u_c",
-          iLoadTex: "i_d > 0,\\; i_c = i_d",
+          endDeg: 360,
+          intervalTex: `\\theta \\in \\left[\\frac{3\\pi}{2} + \\alpha, \\frac{13\\pi}{6} + \\alpha\\right] = [${270 + a}^\\circ, 360^\\circ]`,
+          valves: "T_3",
+          title: `Khoảng 4: Kích mở T3 tại 3π/2 + α = ${270 + a}°, dập tắt T2`,
+          uOutTex: "u_d = u_c = \\sqrt{2}U_{2f}\\sin(\\theta - 240^\\circ)",
+          uValveTex: "u_{T1} = u_{ac} = u_a - u_c < 0\\; (U_{ng,\\max} = \\sqrt{6}U_{2f})",
+          iLoadTex: rl ? "i_d = I_d,\\quad i_{T3} = I_d,\\; i_{T1} = 0" : "i_d = \\frac{u_c}{R_d},\\quad i_{T3} = i_d,\\; i_{T1} = 0",
           physicsExplanation:
-            "Xung kích Ig3 mở V3 hoàn tất 3 pha. Điện áp ud điều chỉnh trơn từ cực đại Ud0 (khi α = 0°) xuống 0 (khi α = 90° với tải RL).",
+            "Pha c dương nhất. Tại θ = 3π/2 + α: Kích mở T3, dập tắt T2. Vòng kín: uc → T3 → Rd → O. Điện áp ra: ud = uc. Điện áp đặt lên van 1: uT1 = uac = ua − uc < 0 (chịu mẩu điện áp dây âm uac và chạm đáy đỉnh ngược cực đại Ung,max = √6 U2f tại θ = 300°). Tiếp tục dẫn sang Khoảng 1 của chu kỳ tiếp theo.",
         },
       ];
     },
