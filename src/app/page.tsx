@@ -57,6 +57,8 @@ export default function Home() {
   const selectedCatalogId = useSimulatorStore((s) => s.selectedCatalogId);
   const selectedAlphaDeg = useSimulatorStore((s) => s.selectedAlphaDeg);
   const selectedLoadType = useSimulatorStore((s) => s.selectedLoadType);
+  const selectedObservedValve = useSimulatorStore((s) => s.selectedObservedValve);
+  const timeSpan = useSimulatorStore((s) => s.timeSpan);
   const thetaDeg = useSimulatorStore((s) => s.thetaDeg);
   const isPlaying = useSimulatorStore((s) => s.isPlaying);
   const playSpeed = useSimulatorStore((s) => s.playSpeed);
@@ -67,6 +69,8 @@ export default function Home() {
   const selectCatalog = useSimulatorStore((s) => s.selectCatalog);
   const selectAlpha = useSimulatorStore((s) => s.selectAlpha);
   const selectLoadType = useSimulatorStore((s) => s.selectLoadType);
+  const selectObservedValve = useSimulatorStore((s) => s.selectObservedValve);
+  const setTimeSpan = useSimulatorStore((s) => s.setTimeSpan);
   const setTheta = useSimulatorStore((s) => s.setTheta);
   const togglePlay = useSimulatorStore((s) => s.togglePlay);
   const setPlaySpeed = useSimulatorStore((s) => s.setPlaySpeed);
@@ -178,10 +182,11 @@ export default function Home() {
             activeEntry.catalogId,
             selectedAlphaDeg,
             selectedLoadType,
-            activeEntry.controlled
+            activeEntry.controlled,
+            selectedObservedValve
           )
         : null,
-    [activeEntry, selectedAlphaDeg, selectedLoadType]
+    [activeEntry, selectedAlphaDeg, selectedLoadType, selectedObservedValve]
   );
 
   /* ----------------------------- Bàn phím ------------------------------- */
@@ -483,37 +488,92 @@ export default function Home() {
         {/* ============================ CỘT PHẢI ============================ */}
         <aside className="col-span-12 space-y-4 lg:col-span-5">
           <div className="panel">
-            {/* Bật/tắt lớp sóng */}
-            <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-3 py-2">
-              {(
-                [
-                  ["udTheory", "Lý thuyết", "var(--sig-theory)"],
-                  ["udSimulink", "Simulink", "var(--sig-sim)"],
-                  ["idSimulink", "i_tải", "var(--sig-on)"],
-                  ["uVan1", "u_van1", "var(--sig-warn)"],
-                  ["iVan1", "i_van1", "#60a5fa"],
-                  ["gatePulses", "Gate", "var(--sig-gate)"],
-                ] as const
-              ).map(([key, label, color]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => toggleLayer(key)}
-                  aria-pressed={layers[key]}
-                  className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[11px] transition-colors ${
-                    layers[key]
-                      ? "border-line-strong bg-surface-3 text-ink-1"
-                      : "border-line text-ink-3 hover:text-ink-2"
-                  }`}
-                >
-                  <span
-                    className="inline-block h-[2px] w-3.5"
-                    style={{ backgroundColor: layers[key] ? color : "var(--ink-3)" }}
-                    aria-hidden
-                  />
-                  {label}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2.5 bg-surface-2/40">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(
+                  [
+                    ["udTheory", "Lý thuyết", "var(--sig-theory)"],
+                    ["udSimulink", "u_d", "var(--sig-sim)"],
+                    ["idSimulink", "i_d", "var(--sig-on)"],
+                    ["uVan1", `u_${extras?.selectedValve || "T1"}`, "var(--sig-warn)"],
+                    ["iVan1", `i_${extras?.selectedValve || "T1"}`, "#38bdf8"],
+                    ["gatePulses", "Gate", "var(--sig-gate)"],
+                  ] as const
+                ).map(([key, label, color]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleLayer(key)}
+                    aria-pressed={layers[key]}
+                    className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[11px] transition-colors ${
+                      layers[key]
+                        ? "border-line-strong bg-surface-3 text-ink-1 font-medium"
+                        : "border-line text-ink-3 hover:text-ink-2"
+                    }`}
+                  >
+                    <span
+                      className="inline-block h-[2px] w-3.5"
+                      style={{ backgroundColor: layers[key] ? color : "var(--ink-3)" }}
+                      aria-hidden
+                    />
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {extras && extras.valveLabels.length > 0 && (
+                  <div className="flex items-center gap-1 rounded-md border border-line bg-surface-1 px-1.5 py-0.5">
+                    <span className="font-mono text-[10px] text-ink-3">Van:</span>
+                    <div className="flex gap-0.5">
+                      {extras.valveLabels.map((v) => {
+                        const isSel = (extras.selectedValve || extras.valveLabels[0]) === v;
+                        return (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => selectObservedValve(v)}
+                            className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold transition-colors ${
+                              isSel
+                                ? "bg-amber-400/20 text-amber-300 border border-amber-400/40"
+                                : "text-ink-3 hover:text-ink-1"
+                            }`}
+                          >
+                            {v}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center rounded-md border border-line bg-surface-1 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setTimeSpan("1T")}
+                    className={`rounded px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors ${
+                      timeSpan === "1T"
+                        ? "bg-[#22d3ee]/20 text-[#22d3ee] border border-[#22d3ee]/40"
+                        : "text-ink-3 hover:text-ink-1"
+                    }`}
+                    title="1 chu kỳ (0..2π) — Giảm tần số, sóng to rõ nét dễ nhìn"
+                  >
+                    1T (2π)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimeSpan("2T")}
+                    className={`rounded px-2 py-0.5 font-mono text-[10px] font-semibold transition-colors ${
+                      timeSpan === "2T"
+                        ? "bg-[#22d3ee]/20 text-[#22d3ee] border border-[#22d3ee]/40"
+                        : "text-ink-3 hover:text-ink-1"
+                    }`}
+                    title="2 chu kỳ (0..4π)"
+                  >
+                    2T (4π)
+                  </button>
+                </div>
+              </div>
             </div>
 
             <MultiChannelCanvas
@@ -530,50 +590,59 @@ export default function Home() {
                     : undefined
               }
               extras={extras}
+              timeSpan={timeSpan}
+              selectedValve={extras?.selectedValve || selectedObservedValve || "T1"}
+              onSelectValve={selectObservedValve}
               className="p-2 pt-1"
             />
 
             {/* Thanh quét góc pha */}
             <div className="border-t border-line px-3 pb-3 pt-2.5">
               <div className="flex items-center justify-between pb-1.5 font-mono text-[11px] text-ink-3">
-                <span>Trục góc pha θ ∈ [0°, 720°]</span>
-                <span className="tabular-nums text-sig-scrub">
+                <span>
+                  Trục góc pha θ ∈ [0°, {timeSpan === "1T" ? "360°" : "720°"}] (
+                  {timeSpan === "1T" ? "0..2π" : "0..4π"})
+                </span>
+                <span className="tabular-nums font-bold text-sig-scrub">
                   θ = {Math.round(thetaDeg)}° ·{" "}
-                  {(Math.round(thetaDeg) / 360).toFixed(2)} chu kỳ
+                  {(Math.round(thetaDeg) / 360).toFixed(2)} chu kỳ ·{" "}
+                  {((Math.round(thetaDeg) * Math.PI) / 180).toFixed(2)} rad
                 </span>
               </div>
               <input
                 type="range"
                 min={0}
-                max={719}
+                max={timeSpan === "1T" ? 359 : 719}
                 step={1}
-                value={Math.round(thetaDeg)}
+                value={Math.round(thetaDeg) % (timeSpan === "1T" ? 360 : 720)}
                 onChange={(e) => setTheta(Number(e.target.value))}
                 className="scrubber"
                 aria-label="Vạch quét góc pha"
               />
               {/* Chip mốc chuyển mạch */}
               <div className="mt-2.5 flex gap-1.5 overflow-x-auto pb-1">
-                {milestones.map((m) => {
-                  const isActive =
-                    currentMilestoneIndex >= 0 &&
-                    milestones[currentMilestoneIndex]?.theta === m.theta;
-                  return (
-                    <button
-                      key={`${m.theta}-${m.title}`}
-                      type="button"
-                      onClick={() => jumpToMilestone(m.theta)}
-                      title={m.title}
-                      className={`shrink-0 rounded-md border px-2 py-1 font-mono text-[11px] tabular-nums transition-colors ${
-                        isActive
-                          ? "border-sig-gate/50 bg-sig-gate/10 text-sig-gate"
-                          : "border-line text-ink-3 hover:bg-surface-2 hover:text-ink-2"
-                      }`}
-                    >
-                      {m.theta}°
-                    </button>
-                  );
-                })}
+                {milestones
+                  .filter((m) => timeSpan === "2T" || m.theta <= 360)
+                  .map((m) => {
+                    const isActive =
+                      currentMilestoneIndex >= 0 &&
+                      milestones[currentMilestoneIndex]?.theta === m.theta;
+                    return (
+                      <button
+                        key={`${m.theta}-${m.title}`}
+                        type="button"
+                        onClick={() => jumpToMilestone(m.theta)}
+                        title={m.title}
+                        className={`shrink-0 rounded-md border px-2 py-1 font-mono text-[11px] tabular-nums transition-colors ${
+                          isActive
+                            ? "border-sig-gate/50 bg-sig-gate/10 text-sig-gate font-bold"
+                            : "border-line text-ink-3 hover:bg-surface-2 hover:text-ink-2"
+                        }`}
+                      >
+                        {m.theta}°
+                      </button>
+                    );
+                  })}
                 {milestones.length === 0 && (
                   <span className="py-1 text-[11px] text-ink-3">Chưa có mốc chuyển mạch</span>
                 )}
