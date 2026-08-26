@@ -58,7 +58,7 @@ export function StageExplanationTable({
     const container = containerRef.current;
     if (el && container) {
       const topPos = el.offsetTop - container.offsetTop;
-      container.scrollTo({ top: Math.max(0, topPos - 8), behavior: "smooth" });
+      container.scrollTo({ top: Math.max(0, topPos - 12), behavior: "smooth" });
     }
   }, []);
 
@@ -106,53 +106,51 @@ export function StageExplanationTable({
       aria-label="Thuyết minh giai đoạn hoạt động"
       className={`overflow-hidden rounded-lg border border-line bg-surface-1 shadow-panel ${className}`}
     >
-      {/* Header với điều hướng giai đoạn */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface-2/70 px-4 py-3">
         <div className="flex items-center gap-2">
           <Activity size={15} className="text-sig-sim" aria-hidden="true" />
           <h2 className="text-sm font-semibold tracking-tight text-ink-1 sm:text-base">
-            Thuyết minh các giai đoạn hoạt động
+            Thuyết minh các khoảng góc pha
           </h2>
         </div>
 
         <div className="flex items-center gap-1.5">
           <span
-            className="inline-flex items-center gap-1 rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide"
+            className="inline-flex items-center gap-1 rounded border px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide font-bold"
             style={{
-              borderColor: "rgba(34,211,238,.35)",
-              backgroundColor: "rgba(34,211,238,.10)",
+              borderColor: "rgba(34,211,238,.45)",
+              backgroundColor: "rgba(34,211,238,.12)",
               color: "#22d3ee",
             }}
           >
-            <Clock size={11} aria-hidden="true" />
-            {activeStageIndex + 1}/{stages.length} · θ = {Math.round(thetaDeg)}°
+            <Clock size={12} aria-hidden="true" />
+            Khoảng {activeStageIndex + 1}/{stages.length} · θ = {Math.round(thetaDeg)}°
           </span>
 
           <div className="flex items-center rounded-md border border-line bg-surface-3">
             <button
               type="button"
               onClick={() => handleStepStage(-1)}
-              title="Giai đoạn trước"
-              className="px-1.5 py-1 text-ink-2 hover:bg-surface-2 hover:text-ink-1 transition-colors"
+              title="Khoảng trước"
+              className="px-2 py-1 text-ink-2 hover:bg-surface-2 hover:text-ink-1 transition-colors"
             >
-              <ChevronLeft size={13} aria-hidden="true" />
+              <ChevronLeft size={14} aria-hidden="true" />
             </button>
             <button
               type="button"
               onClick={() => handleStepStage(1)}
-              title="Giai đoạn sau"
-              className="px-1.5 py-1 text-ink-2 hover:bg-surface-2 hover:text-ink-1 transition-colors border-l border-line"
+              title="Khoảng sau"
+              className="px-2 py-1 text-ink-2 hover:bg-surface-2 hover:text-ink-1 transition-colors border-l border-line"
             >
-              <ChevronRight size={13} aria-hidden="true" />
+              <ChevronRight size={14} aria-hidden="true" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Danh sách các giai đoạn có thanh cuộn mượt và auto-scroll */}
       <div
         ref={containerRef}
-        className="max-h-[520px] divide-y divide-line overflow-y-auto scroll-smooth"
+        className="max-h-[540px] divide-y divide-line overflow-y-auto scroll-smooth"
       >
         {stages.map((stage: CircuitStage, idx: number) => {
           const isActive = idx === activeStageIndex;
@@ -163,22 +161,37 @@ export function StageExplanationTable({
                 stageRefs.current[stage.id] = el;
               }}
               onClick={() => handleSelectStage(stage)}
-              className={`group cursor-pointer p-3.5 transition-colors duration-150 sm:p-4 ${
+              className={`group cursor-pointer p-4 transition-all duration-200 ${
                 isActive
-                  ? "bg-sig-sim/10 border-l-4 border-l-sig-sim"
-                  : "hover:bg-surface-2 border-l-4 border-l-transparent"
+                  ? "bg-cyan-950/30 border-l-[5px] border-l-[#22d3ee] shadow-[inset_0_0_16px_rgba(34,211,238,0.08)]"
+                  : "hover:bg-surface-2/60 border-l-[5px] border-l-transparent"
               }`}
             >
-              {/* Thanh tiêu đề giai đoạn */}
               <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-surface-3 font-mono text-[10px] font-semibold text-ink-2">
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded-full font-mono text-[10px] font-bold ${
+                      isActive
+                        ? "bg-[#22d3ee] text-black"
+                        : "bg-surface-3 text-ink-2"
+                    }`}
+                  >
                     {idx + 1}
                   </span>
-                  <div className="rounded bg-surface-3 px-2 py-0.5 font-mono text-xs font-medium text-sig-theory">
+                  <div
+                    className={`rounded px-2.5 py-0.5 font-mono text-xs font-semibold ${
+                      isActive
+                        ? "bg-[#22d3ee]/20 text-[#22d3ee] border border-[#22d3ee]/40"
+                        : "bg-surface-3 text-sig-theory"
+                    }`}
+                  >
                     <Formula tex={stage.intervalTex} />
                   </div>
-                  <span className="text-xs font-semibold text-ink-1 sm:text-sm">
+                  <span
+                    className={`text-xs font-bold sm:text-sm ${
+                      isActive ? "text-ink-1 font-bold" : "text-ink-2"
+                    }`}
+                  >
                     {stage.title}
                   </span>
                 </div>
@@ -188,59 +201,79 @@ export function StageExplanationTable({
                     className="inline-flex items-center gap-1.5 rounded border px-2 py-0.5 font-mono text-[11px] font-medium"
                     style={{
                       borderColor: isActive
-                        ? "rgba(52,211,153,.5)"
+                        ? "rgba(52,211,153,.6)"
                         : "var(--line)",
                       backgroundColor: isActive
-                        ? "rgba(52,211,153,.15)"
+                        ? "rgba(52,211,153,.2)"
                         : "var(--surface-2)",
                       color: isActive ? "#34d399" : "var(--ink-2)",
                     }}
                   >
                     <Cpu size={11} aria-hidden="true" />
-                    <span>Van:</span>
+                    <span>Van dẫn:</span>
                     <Formula tex={stage.valves} />
                   </span>
                   {isActive && (
-                    <span className="hidden items-center gap-1 rounded bg-sig-on/20 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-sig-on sm:inline-flex">
+                    <span className="inline-flex items-center gap-1 rounded bg-sig-on/20 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-sig-on border border-sig-on/40 animate-pulse">
                       <Sparkles size={10} aria-hidden="true" />
-                      Đang chạy
+                      Đang quét
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Lưới công thức LaTeX tức thời của giai đoạn */}
-              <div className="my-2.5 grid grid-cols-1 gap-2 rounded-md bg-surface-0/80 p-2.5 sm:grid-cols-3">
-                <div className="space-y-0.5 rounded border border-line/60 bg-surface-2/40 px-2.5 py-1.5">
+              <div className="my-2.5 grid grid-cols-1 gap-2 rounded-md bg-surface-0/90 p-2.5 sm:grid-cols-3">
+                <div
+                  className={`space-y-0.5 rounded border px-2.5 py-1.5 ${
+                    isActive
+                      ? "border-[#22d3ee]/30 bg-[#22d3ee]/5"
+                      : "border-line/60 bg-surface-2/40"
+                  }`}
+                >
                   <p className="font-mono text-[10px] uppercase text-ink-3">
-                    Điện áp tức thời u_d / u_tải
+                    Điện áp tức thời u_d
                   </p>
-                  <div className="overflow-x-auto text-xs text-sig-sim">
+                  <div className="overflow-x-auto text-xs font-semibold text-sig-sim">
                     <Formula tex={stage.uOutTex} />
                   </div>
                 </div>
 
-                <div className="space-y-0.5 rounded border border-line/60 bg-surface-2/40 px-2.5 py-1.5">
+                <div
+                  className={`space-y-0.5 rounded border px-2.5 py-1.5 ${
+                    isActive
+                      ? "border-amber-400/30 bg-amber-400/5"
+                      : "border-line/60 bg-surface-2/40"
+                  }`}
+                >
                   <p className="font-mono text-[10px] uppercase text-ink-3">
-                    Điện áp trên van u_V
+                    Điện áp trên van u_T
                   </p>
-                  <div className="overflow-x-auto text-xs text-sig-warn">
+                  <div className="overflow-x-auto text-xs font-semibold text-sig-warn">
                     <Formula tex={stage.uValveTex} />
                   </div>
                 </div>
 
-                <div className="space-y-0.5 rounded border border-line/60 bg-surface-2/40 px-2.5 py-1.5">
+                <div
+                  className={`space-y-0.5 rounded border px-2.5 py-1.5 ${
+                    isActive
+                      ? "border-blue-400/30 bg-blue-400/5"
+                      : "border-line/60 bg-surface-2/40"
+                  }`}
+                >
                   <p className="font-mono text-[10px] uppercase text-ink-3">
-                    Dòng điện tải i_d & nguồn
+                    Dòng điện tải i_d
                   </p>
-                  <div className="overflow-x-auto text-xs text-[#60a5fa]">
+                  <div className="overflow-x-auto text-xs font-semibold text-[#60a5fa]">
                     <Formula tex={stage.iLoadTex} />
                   </div>
                 </div>
               </div>
 
-              {/* Thuyết minh vật lý chi tiết */}
-              <p className="text-xs leading-relaxed text-ink-2 sm:text-xs">
+              <p
+                className={`text-xs leading-relaxed ${
+                  isActive ? "text-ink-1 font-medium" : "text-ink-2"
+                }`}
+              >
                 {stage.physicsExplanation}
               </p>
             </div>
